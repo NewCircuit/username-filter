@@ -1,0 +1,38 @@
+{
+  "name": "username_auto_mute",
+  "version": "1.0.0",
+  "description": "Auto mute the joining users if their username is inappropriate.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "slycor",
+  "license": "ISC",
+  "dependencies": {
+    "@types/pg": "^7.14.7",
+    "discord.js": "^12.5.1",
+    "discord.js-commando": "github:discordjs/Commando",
+    "pg": "^8.5.1",
+    "typescript-eslint": "0.0.1-alpha.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.14",
+    "@typescript-eslint/eslint-plugin": "^4.11.0",
+    "@typescript-eslint/parser": "^4.11.0",
+    "eslint": "^7.16.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "typescript": "^4.1.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Floor-Gang/username_auto_mute.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Floor-Gang/username_auto_mute/issues"
+  },
+  "homepage": "https://github.com/Floor-Gang/username_auto_mute#readme"
+}
