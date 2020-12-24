@@ -1,0 +1,9 @@
+{
+    "db_host": "localhost",
+    "db_port": 8000,
+    "db_user": "db_user",
+    "db_pass": "db_pass",
+    "token"  : "bot_token",
+    "prefix" : "-",
+    "guild_id": "guild_id"
+}
