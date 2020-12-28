@@ -1,5 +1,5 @@
 import { Guild, GuildMember, Role, TextChannel } from 'discord.js';
-import { getMemberKickTimer, getMutedMember, getNextDbRowID, poolBan, poolMute } from '../db/db';
+import { getMemberKickTimer, getActiveMutedMember, getNextDbRowID, poolBan, poolMute } from '../db/db';
 import { bannableWords } from '../config/bannable-words.json';
 import { muteableWords } from '../config/muteable-words.json';
 import { MutedUserDb } from '../models/types';
@@ -64,7 +64,7 @@ export function checkUsername (username: String) {
 
 // Check if the member is muted already
 export async function checkIfMemberMuted (member: GuildMember) {
-  const mutedUser = getMutedMember(member);
+  const mutedUser = getActiveMutedMember(member);
 
   if (mutedUser) {
     return true;

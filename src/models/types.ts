@@ -1,8 +1,7 @@
 // Type for arguments provided for the list commands
 export type ListArgs = {
   listType: string,
-  word: string,
-  index: number
+  listWord: string
 }
 
 // Type for muted users database data
@@ -26,4 +25,10 @@ export type BannedUserDb = {
   isActive: boolean,
   createdAt: Date,
   modifiedAt: Date,
+}
+
+// Type for inappropriate users database data
+export type InappropriateWordsDb = {
+  word: string,
+  bannable: boolean
 }

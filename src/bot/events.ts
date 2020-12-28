@@ -113,6 +113,7 @@ export async function checkMuted (client: CommandoClient) {
               await poolMute.query(
                 'UPDATE users_muted.users SET ' +
                   'is_active = false,' +
+                  'kick_timer = false,' +
                   'modified_at = now() ' +
                   'WHERE ' +
                   'uid = $1 ' +
@@ -144,6 +145,10 @@ export async function checkMuted (client: CommandoClient) {
                   row.banCount
                 ]
               );
+
+              // notify the user that the username is still inappropriate
+              member.send('Your changed username is still inappropriate. ' +
+                'Please change your username to something appropriate!');
             }
           }
         } catch (e) {
