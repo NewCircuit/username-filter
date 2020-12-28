@@ -41,7 +41,7 @@ export async function getMember (uid: string, guild: Guild) {
     const member = await guild.members.fetch(uidParsed);
     return member;
   } catch (e) {
-    console.log(`User not found because ${e}`);
+    console.error(`User not found because ${e}`);
     return undefined;
   }
 }
@@ -102,7 +102,7 @@ export async function checkTempBan (member: GuildMember) {
         [tempBanUser.banCount,
           member.user.id,
           member.guild.id]
-      ).catch(console.log);
+      ).catch(console.error);
 
       // ban the member and send embed to the channel
       banMemberAndSendEmbed(member, null, banDuration,
@@ -328,7 +328,7 @@ export async function banMemberAndSendEmbed (member: GuildMember,
     banReason,
     time
   ]
-  ).catch(console.log);
+  ).catch(console.error);
 
   const ch = member.guild.channels.cache
     .find(ch => ch.name === 'punishment-track') as TextChannel;
