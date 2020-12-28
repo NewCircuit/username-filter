@@ -3,8 +3,11 @@ import { Command, CommandoClient, CommandoMessage } from 'discord.js-commando';
 import * as utils from '../../bot/utils';
 import * as config from '../../config/config.json';
 import { ListArgs } from '../../models/types';
-import { bannableWords } from '../../config/bannable-words.json';
-import { muteableWords } from '../../config/muteable-words.json';
+import {
+  getBannableWords,
+  getMuteableWords,
+  deleteInapproppriateWord
+} from '../../db/db';
 
 export default class ListAddCommand extends Command {
   constructor (bot: CommandoClient) {
@@ -21,18 +24,18 @@ export default class ListAddCommand extends Command {
           type: 'string'
         },
         {
-          key: 'index',
-          prompt: 'Index of the word that will be deleted.',
+          key: 'listWord',
+          prompt: 'Word that will be deleted.',
           type: 'string'
         }
       ],
-      argsPromptLimit: 0,
+      argsPromptLimit: 2,
       argsCount: 2,
       argsType: 'multiple'
     });
   }
 
-  public async run (msg: CommandoMessage, { listType, index }: ListArgs)
+  public async run (msg: CommandoMessage, { listType, listWord }: ListArgs)
     : Promise<Message | Message[] | null> {
     let returnPromise = null;
 
@@ -45,23 +48,40 @@ export default class ListAddCommand extends Command {
         if (utils.checkIfUserDiscordMod(member)) {
           switch (listType) {
             case 'muteable':
-              if ((muteableWords.length >= index) && (index > 0)) {
-                const word = muteableWords.splice(index - 1, 1);
-                returnPromise = msg.say(`Deleted ${word} from the muteable list!`);
-              } else {
-                returnPromise = msg.say('Wrong index provided!');
+              {
+                // fetch the muteable words from database
+                const muteableWords = await getMuteableWords();
+                if (muteableWords !== undefined) {
+                  if ((muteableWords.some(({ word }) => {
+                    return listWord === word;
+                  }))) {
+                    deleteInapproppriateWord(listWord);
+                    returnPromise = msg.say(`Deleted ${listWord} ` +
+                      'from the muteable list!');
+                  } else {
+                    returnPromise = msg.say('Wrong word provided!');
+                  }
+                }
               }
               break;
             case 'bannable':
               if ((msg.guild === null)) {
-                if ((bannableWords.length >= index) && (index > 0)) {
-                  const word = bannableWords.splice(index - 1, 1);
-                  returnPromise = msg.say(`Deleted ${word} from the bannable list!`);
-                } else {
-                  returnPromise = msg.say('Wrong index provided!');
+                // fetch the bannable words from database
+                const bannableWords = await getBannableWords();
+
+                if (bannableWords !== undefined) {
+                  if ((bannableWords.some(({ word }) => {
+                    return listWord === word;
+                  }))) {
+                    deleteInapproppriateWord(listWord);
+                    returnPromise = msg.say(`Deleted ${listWord} ` +
+                      'from the bannable list!');
+                  } else {
+                    returnPromise = msg.say('Wrong word provided!');
+                  }
                 }
               } else {
-                returnPromise = msg.say('Removing words from bannable list ' +
+                returnPromise = msg.say('Deleting words from bannable list ' +
                   'is only possible from DMs!');
               }
               break;
