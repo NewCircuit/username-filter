@@ -45,9 +45,9 @@ export async function getMutedMembers ():
 export async function getActiveMutedMember (member: GuildMember):
   Promise<MutedUser | undefined> {
   const members = await poolMute.query('SELECT * FROM users_muted.users ' +
-    `WHERE uid = ${member.id} AND is_active = true`);
+    'WHERE uid = $1 AND is_active = true', [member.id]);
 
-  if (members !== undefined) {
+  if ((members !== undefined) && (members.rows.length > 0)) {
     return parseUserMuted(members.rows[0]);
   } else {
     return undefined;
@@ -59,9 +59,9 @@ export async function getActiveMutedMember (member: GuildMember):
 export async function getMemberKickTimer (member: GuildMember):
   Promise<MutedUser | undefined> {
   const members = await poolMute.query('SELECT * FROM users_muted.users ' +
-    `WHERE uid = ${member.id} AND kick_timer = true`);
+    'WHERE uid = $1 AND kick_timer = true', [member.id]);
 
-  if (members !== undefined) {
+  if ((members !== undefined) && (members.rows.length > 0)) {
     return parseUserMuted(members.rows[0]);
   } else {
     return undefined;

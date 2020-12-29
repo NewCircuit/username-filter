@@ -7,10 +7,10 @@ import {
   insertUserIntoBannedDb,
   updateMutedUserToInactive,
   updateMutedUserBanCounter,
-  updateBannedUserInactive
+  updateBannedUserInactive,
+  getBannableWords,
+  getMuteableWords
 } from '../db/db';
-import { bannableWords } from '../config/bannable-words.json';
-import { muteableWords } from '../config/muteable-words.json';
 import { MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
 
@@ -57,18 +57,24 @@ export async function getMember (uid: string, guild: Guild) {
 
 // Check if the username is muteable and/or bannable
 // TODO: change it to a type instead of object only
-export function checkUsername (username: String) {
-  for (let index = 0; index < bannableWords.length; index++) {
-    if (username.includes(bannableWords[index])) {
-      return { shouldMute: true, kickTimer: true };
+export async function checkUsername (username: String) {
+  const muteableWords = await getMuteableWords();
+  const bannableWords = await getBannableWords();
+  if ((muteableWords !== undefined) && (bannableWords !== undefined)) {
+    for (let index = 0; index < bannableWords.length; index++) {
+      if (username.includes(bannableWords[index].word)) {
+        return { shouldMute: true, kickTimer: bannableWords[index].bannable };
+      }
     }
-  }
-  for (let index = 0; index < muteableWords.length; index++) {
-    if (username.includes(muteableWords[index])) {
-      return { shouldMute: true, kickTimer: false };
+    for (let index = 0; index < muteableWords.length; index++) {
+      if (username.includes(muteableWords[index].word)) {
+        return { shouldMute: true, kickTimer: muteableWords[index].bannable };
+      }
     }
+    return { shouldMute: false, kickTimer: false };
   }
-  return { shouldMute: false, kickTimer: false };
+  console.error("Couldn't fetch one (or both) of the lists!");
+  return { shouldMute: undefined, kickTimer: undefined };
 }
 
 // Check if the member is muted already
@@ -92,29 +98,39 @@ export async function checkTempBan (member: GuildMember) {
     // get the old username from the reason message (offset is 24)
     const oldUserName = tempBanUser.reason.substring(24,
       tempBanUser.reason.length);
+    if (tempBanUser.banCount !== undefined) {
+      if (!oldUserName.localeCompare(member.user.username)) {
+        // increment the ban counter indicating how long the user will be
+        // banned
+        tempBanUser.banCount += 1;
+        const banDuration = (tempBanUser.banCount) * DAYS_IN_MONTH;
 
-    if (!oldUserName.localeCompare(member.user.username) &&
-        tempBanUser.banCount !== undefined) {
-      // increment the ban counter indicating how long the user will be
-      // banned
-      tempBanUser.banCount += 1;
-      const banDuration = (tempBanUser.banCount) * DAYS_IN_MONTH;
+        // update the data in the db for muted users
+        updateMutedUserBanCounter(
+          {
+            uid: member.user.id,
+            guildId: member.guild.id,
+            banCount: tempBanUser.banCount
+          }
+        ).catch(console.error);
 
-      // update the data in the db for muted users
+        // ban the member and send embed to the channel
+        banMemberAndSendEmbed(member, null, banDuration,
+          tempBanUser.reason);
 
-      updateMutedUserBanCounter(
-        {
-          uid: member.user.id,
-          guildId: member.guild.id,
-          banCount: tempBanUser.banCount
-        }
-      ).catch(console.error);
-
-      // ban the member and send embed to the channel
-      banMemberAndSendEmbed(member, null, banDuration,
-        tempBanUser.reason);
-
-      return true;
+        return true;
+      } else {
+        // user joined the server back but not with the same bad username
+        // reevaluate the new username
+        updateMutedUserToInactive(
+          {
+            uid: member.user.id,
+            guildId: member.guild.id,
+            isActive: false,
+            kickTimer: false
+          }
+        ).catch(console.error);
+      }
     }
   }
 

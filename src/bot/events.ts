@@ -80,7 +80,7 @@ export async function checkMuted (client: CommandoClient) {
                     uid: row.uid,
                     guildId: row.guildId,
                     isActive: false,
-                    kickTimer: false
+                    kickTimer: row.kickTimer
                   }
                 );
 
@@ -95,7 +95,7 @@ export async function checkMuted (client: CommandoClient) {
           // check if username was changed
           } else if (member.user.username.localeCompare(oldUserName)) {
             // check if username is still inappropriate
-            const userNameCheck = utils
+            const userNameCheck = await utils
               .checkUsername(member.user.username);
             if (!userNameCheck.shouldMute) {
               utils.unmuteMemberAndSendEmbed(member, row, null);
@@ -151,7 +151,7 @@ export async function checkMuted (client: CommandoClient) {
 }
 
 export async function muteInappropriateUsername (member: GuildMember) {
-  const userNameCheck = utils.checkUsername(member.user.username);
+  const userNameCheck = await utils.checkUsername(member.user.username);
   if (userNameCheck.shouldMute) {
     const reason = 'Inappropriate username: ' + member.user.username;
 
