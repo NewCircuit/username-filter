@@ -190,7 +190,8 @@ export async function muteMemberAndSendEmbed (member: GuildMember,
       uid: member.id,
       guildId: member.guild.id,
       reason: reason,
-      kickTimer: kickTimer
+      kickTimer: kickTimer,
+      banCount: 0
     });
 
     const nextId = await getNextMuteDbRowID();
