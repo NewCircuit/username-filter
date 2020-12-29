@@ -1,138 +1,22 @@
 import { GuildMember } from 'discord.js';
-import { Pool, PoolClient } from 'pg';
-import config from '../config/config.json';
-import { BannedUserDb, MutedUserDb, InappropriateWordsDb } from '../models/types';
-import { bannableWords } from '../config/bannable-words.json';
-import { muteableWords } from '../config/muteable-words.json';
+import { QueryResult } from 'pg';
+import {
+  BannedUser,
+  BannedUserDb,
+  MutedUser,
+  MutedUserDb,
+  InappropriateWords
+} from '../models/types';
+import { poolMute, poolBan, poolInaproppriateWords } from './tables';
 
-// Create a new pool for muted users db access.
-// Database information is given in the config file.
-// Export pool so it can be used in other files
-export const poolMute = new Pool({
-  host: config.db_host,
-  port: config.db_port,
-  user: config.db_user,
-  password: config.db_pass,
-  max: 20
-});
-
-// Create a new pool for banned users db access.
-// Database information is given in the config file.
-// Export pool so it can be used in other files
-export const poolBan = new Pool({
-  host: config.db_host,
-  port: config.db_port,
-  user: config.db_user,
-  password: config.db_pass,
-  max: 20
-});
-
-// Create a new pool for inappropriate words db access.
-// Database information is given in the config file.
-// Export pool so it can be used in other files
-export const poolInaproppriateWords = new Pool({
-  host: config.db_host,
-  port: config.db_port,
-  user: config.db_user,
-  password: config.db_pass,
-  max: 20
-});
-
-// Create a connection for the pool so schema and table can be created and used
-// by the bot.
-poolMute.connect((err?: Error, client?: PoolClient, rel?: (_?: any) => void) => {
-  if (err) {
-    return console.error('Error acquiring client', err.stack);
-  }
-  // if error is undefiend then client is not.
-  client = client as PoolClient;
-
-  client.query('CREATE SCHEMA IF NOT EXISTS users_muted;', (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    }
-  });
-
-  client.query('CREATE TABLE IF NOT EXISTS users_muted.users (' +
-                'uid text, guild_id text, reason text,' +
-                'is_active boolean, kick_timer boolean,' +
-                'ban_count integer, created_at timestamp,' +
-                'modified_at timestamp);',
-  (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    }
-  });
-});
-
-// Create a connection for the pool so schema and table can be created and used
-// by the bot.
-poolBan.connect((err?: Error, client?: PoolClient, rel?: (_?: any) => void) => {
-  if (err) {
-    return console.error('Error acquiring client', err.stack);
-  }
-  // if error is undefined then client is not.
-  client = client as PoolClient;
-
-  client.query('CREATE SCHEMA IF NOT EXISTS users_banned;', (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    }
-  });
-
-  client.query('CREATE TABLE IF NOT EXISTS users_banned.users (' +
-                'uid text, guild_id text, reason text, time bigint,' +
-                'is_active boolean, created_at timestamp,' +
-                'modified_at timestamp);',
-  (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    }
-  });
-});
-
-// Create a connection for the pool so schema and table can be created and used
-// by the bot.
-poolInaproppriateWords.connect((err?: Error,
-  client?: PoolClient, rel?: (_?: any) => void) => {
-  if (err) {
-    return console.error('Error acquiring client', err.stack);
-  }
-  // if error is undefined then client is not.
-  client = client as PoolClient;
-
-  client.query('CREATE SCHEMA IF NOT EXISTS inappropriate_words;', (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    }
-  });
-
-  client.query('CREATE TABLE IF NOT EXISTS inappropriate_words.words (' +
-    'word text, bannable boolean);',
-  (err) => {
-    if (err) {
-      return console.error('Error executing query', err.stack);
-    } else {
-      // if table created, check if we have inappropriate words
-      getAllInappropriateWords().then(async (words) => {
-        // there are no words written in database, populate it
-        if ((words !== undefined) && (words.length === 0)) {
-          bannableWords.forEach((word: string) => {
-            insertInapproppriateWord(word, true);
-          });
-          muteableWords.forEach((word: string) => {
-            insertInapproppriateWord(word, false);
-          });
-        }
-      });
-    }
-  });
-});
+/* *********************************************************
+ * ******************* SELECT queries **********************
+ * ********************************************************* */
 
 // Function that gets the latest row count in the user muted database. This
 // value is used for automatic nickname given by the bot when the username is
 // inappropriate.
-export async function getNextDbRowID () {
+export async function getNextMuteDbRowID () {
   const rows = await poolMute.query('SELECT * FROM users_muted.users');
 
   return rows.rowCount;
@@ -141,12 +25,12 @@ export async function getNextDbRowID () {
 // Get all the muted members from the database and parse them to the defined
 // type. If no users are found, return undefined
 export async function getMutedMembers ():
-  Promise<Array<MutedUserDb> | undefined> {
+  Promise<Array<MutedUser> | undefined> {
   const members = await poolMute.query('SELECT * FROM users_muted.users');
-  const membersParsed = new Array<MutedUserDb>(0);
+  const membersParsed = new Array<MutedUser>(0);
 
   if (members !== undefined) {
-    members.rows.forEach(async (row: any) => {
+    members.rows.forEach(async (row: MutedUserDb) => {
       membersParsed.push(parseUserMuted(row));
     });
 
@@ -159,12 +43,12 @@ export async function getMutedMembers ():
 // Get the active muted member from the database and parse data to the
 // defined type. If no user is found, return undefined
 export async function getActiveMutedMember (member: GuildMember):
-  Promise<MutedUserDb | undefined> {
+  Promise<MutedUser | undefined> {
   const members = await poolMute.query('SELECT * FROM users_muted.users ' +
     `WHERE uid = ${member.id} AND is_active = true`);
 
   if (members !== undefined) {
-    return members.rows[0];
+    return parseUserMuted(members.rows[0]);
   } else {
     return undefined;
   }
@@ -173,12 +57,12 @@ export async function getActiveMutedMember (member: GuildMember):
 // Get the muted member with kick timer from the database and parse data to the
 // defined type. If no user is found, return undefined
 export async function getMemberKickTimer (member: GuildMember):
-  Promise<MutedUserDb | undefined> {
+  Promise<MutedUser | undefined> {
   const members = await poolMute.query('SELECT * FROM users_muted.users ' +
     `WHERE uid = ${member.id} AND kick_timer = true`);
 
   if (members !== undefined) {
-    return members.rows[0];
+    return parseUserMuted(members.rows[0]);
   } else {
     return undefined;
   }
@@ -187,12 +71,12 @@ export async function getMemberKickTimer (member: GuildMember):
 // Get the banned members from the database and parse data to the
 // defined type. If no users are found, return undefined
 export async function getBannedMembers ():
-  Promise<Array<BannedUserDb> | undefined> {
+  Promise<Array<BannedUser> | undefined> {
   const members = await poolBan.query('SELECT * FROM users_banned.users');
-  const membersParsed = new Array<BannedUserDb>(0);
+  const membersParsed = new Array<BannedUser>(0);
 
   if (members !== undefined) {
-    members.rows.forEach(async (row: any) => {
+    members.rows.forEach(async (row: BannedUserDb) => {
       membersParsed.push(parseUserBanned(row));
     });
 
@@ -205,12 +89,12 @@ export async function getBannedMembers ():
 // Get all the inappropriate words from the database and parse them to the
 // defined type. If no words are found, return undefined
 export async function getAllInappropriateWords ():
-  Promise<Array<InappropriateWordsDb> | undefined> {
+  Promise<Array<InappropriateWords> | undefined> {
   const words = await poolMute.query('SELECT * FROM inappropriate_words.words');
-  const wordsParsed = new Array<InappropriateWordsDb>(0);
+  const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: any) => {
+    words.rows.forEach(async (row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
@@ -223,13 +107,13 @@ export async function getAllInappropriateWords ():
 // Get all the inappropriate words from the database and parse them to the
 // defined type. If no words are found, return undefined
 export async function getMuteableWords ():
-  Promise<Array<InappropriateWordsDb> | undefined> {
+  Promise<Array<InappropriateWords> | undefined> {
   const words = await poolMute.query(
     'SELECT * FROM inappropriate_words.words WHERE bannable = false');
-  const wordsParsed = new Array<InappropriateWordsDb>(0);
+  const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: any) => {
+    words.rows.forEach(async (row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
@@ -242,13 +126,13 @@ export async function getMuteableWords ():
 // Get all the inappropriate words from the database and parse them to the
 // defined type. If no words are found, return undefined
 export async function getBannableWords ():
-  Promise<Array<InappropriateWordsDb> | undefined> {
+  Promise<Array<InappropriateWords> | undefined> {
   const words = await poolMute.query(
     'SELECT * FROM inappropriate_words.words WHERE bannable = true');
-  const wordsParsed = new Array<InappropriateWordsDb>(0);
+  const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: any) => {
+    words.rows.forEach(async (row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
@@ -258,22 +142,147 @@ export async function getBannableWords ():
   }
 }
 
-// Parse the data from database into the MutedUserDb type
-export function parseUserMuted (data: any): MutedUserDb {
+/* *********************************************************
+ * ******************* INSERT queries **********************
+ * ********************************************************* */
+
+// inserts the given inappropriate word into database as well as the indication
+// if it is bannable or not
+export async function insertInapproppriateWord (word: string,
+  bannable: boolean) {
+  poolInaproppriateWords.query(
+    'INSERT INTO inappropriate_words.words(' +
+      'word,' +
+      'bannable)' +
+      'VALUES ($1, $2)',
+    [word, bannable]);
+}
+
+// inserts the given member into muted database of type MutedUser
+export async function insertUserIntoMutedDb (user: MutedUser):
+Promise<QueryResult<MutedUserDb>> {
+  return poolMute.query(
+    'INSERT INTO users_muted.users (' +
+              'uid,' +
+              'guild_id,' +
+              'reason,' +
+              'is_active,' +
+              'kick_timer,' +
+              'ban_count,' +
+              'created_at,' +
+              'modified_at)' +
+              'VALUES ($1, $2, $3, true, $4, $5, now(), now())',
+    [
+      user.uid,
+      user.guildId,
+      user.reason,
+      user.kickTimer,
+      user.banCount
+    ]
+  );
+}
+
+// inserts the given member into banned database of type BannedUser
+export async function insertUserIntoBannedDb (user: BannedUser):
+  Promise<QueryResult<BannedUserDb>> {
+  return poolBan.query('INSERT INTO users_banned.users (' +
+    'uid,' +
+    'guild_id,' +
+    'reason,' +
+    'time,' +
+    'is_active,' +
+    'created_at,' +
+    'modified_at)' +
+    'VALUES ($1, $2, $3, $4, true, now(), now())',
+  [
+    user.uid,
+    user.guildId,
+    user.reason,
+    user.time
+  ]);
+}
+
+/* *********************************************************
+ * ******************* UPDATE queries **********************
+ * ********************************************************* */
+
+// sets the active and kick timer fields of muted user to false
+export async function updateMutedUserToInactive (user: MutedUser):
+  Promise<QueryResult<MutedUserDb>> {
+  return poolMute.query(
+    'UPDATE users_muted.users SET ' +
+      'is_active = $3,' +
+      'kick_timer = $4,' +
+      'modified_at = now() ' +
+      'WHERE ' +
+      'uid = $1 ' +
+      'AND guild_id = $2' +
+      'AND is_active = true',
+    [user.uid, user.guildId, user.isActive, user.kickTimer]
+  );
+}
+
+// updates the ban count of a certain user
+export async function updateMutedUserBanCounter (user: MutedUser):
+Promise<QueryResult<MutedUserDb>> {
+  return poolMute.query(
+    'UPDATE users_muted.users SET ' +
+            'ban_count = $1,' +
+            'modified_at = now() ' +
+            'WHERE ' +
+            'uid = $2 ' +
+            'AND guild_id = $3' +
+            'AND kick_timer = true',
+    [user.banCount,
+      user.uid,
+      user.guildId]
+  );
+}
+
+export async function updateBannedUserInactive (user: BannedUser) {
+  poolBan.query(
+    'UPDATE users_banned.users SET ' +
+                'is_active = $4,' +
+                'modified_at = now() ' +
+                'WHERE ' +
+                'uid = $1 ' +
+                'AND guild_id = $2' +
+                'AND time = $3' +
+                'AND is_active = true',
+    [user.uid, user.guildId, user.time, user.isActive]
+  );
+}
+
+/* *********************************************************
+ * ******************* DELETE queries **********************
+ * ********************************************************* */
+
+// Delete the given word from the database of inappropriate words
+export async function deleteInapproppriateWord (word: string) {
+  poolInaproppriateWords.query(
+    'DELETE FROM inappropriate_words.words WHERE word = $1', [word]);
+}
+
+/* *********************************************************
+ * *********** Parsing database data into types ************
+ * ********************************************************* */
+
+// Parse the data from database into the MutedUser type
+export function parseUserMuted (data: MutedUserDb): MutedUser {
   return {
     uid: data.uid,
     guildId: data.guild_id,
     reason: data.reason,
     isActive: data.is_active,
-    kickTimer: data.kickTimer,
+    kickTimer: data.kick_timer,
     banCount: data.ban_count,
     createdAt: data.created_at,
     modifiedAt: data.modified_at
   };
 }
 
-// Parse the data from database into the BannedUserDb type
-export function parseUserBanned (data: any): BannedUserDb {
+// Parse the data from database into the BannedUser type
+export function parseUserBanned (data: BannedUserDb): BannedUser {
   return {
     uid: data.uid,
     guildId: data.guild_id,
@@ -286,25 +295,10 @@ export function parseUserBanned (data: any): BannedUserDb {
 }
 
 // Parse the data from database into the BannedUserDb type
-export function parseInappropriateWords (data: any): InappropriateWordsDb {
+export function parseInappropriateWords (data: InappropriateWords):
+  InappropriateWords {
   return {
     word: data.word,
     bannable: data.bannable
   };
-}
-
-// database query functions
-export async function insertInapproppriateWord (word: string,
-  bannable: boolean) {
-  poolInaproppriateWords.query(
-    'INSERT INTO inappropriate_words.words(' +
-      'word,' +
-      'bannable)' +
-      'VALUES ($1, $2)',
-    [word, bannable]);
-}
-
-export async function deleteInapproppriateWord (word: string) {
-  poolInaproppriateWords.query(
-    'DELETE FROM inappropriate_words.words WHERE word = $1', [word]);
 }

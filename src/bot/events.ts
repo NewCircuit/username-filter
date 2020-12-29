@@ -1,8 +1,13 @@
 import { TextChannel, GuildMember, MessageReaction, User } from 'discord.js';
 import { CommandoClient } from 'discord.js-commando';
 import * as utils from './utils';
-import { getMutedMembers, poolMute, poolBan, getBannedMembers } from '../db/db';
-import { BannedUserDb, MutedUserDb } from '../models/types';
+import {
+  getMutedMembers,
+  getBannedMembers,
+  insertUserIntoMutedDb,
+  updateMutedUserToInactive
+} from '../db/db';
+import { BannedUser, MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
 
 // Function that periodically (every second) checks if there are banned users
@@ -12,9 +17,9 @@ export async function checkBanned (client: CommandoClient) {
   const bannedUsers = await getBannedMembers();
 
   if (bannedUsers !== undefined) {
-    bannedUsers.forEach(async (row: BannedUserDb) => {
+    bannedUsers.forEach(async (row: BannedUser) => {
       const now = Math.round(Date.now() / utils.MILIS);
-      if (now >= row.time && row.isActive) {
+      if ((row.time !== undefined) && (now >= row.time) && row.isActive) {
         const guild = await client.guilds.fetch(row.guildId);
         // guild does not exist (should not happen)
         if (!guild) {
@@ -28,17 +33,7 @@ export async function checkBanned (client: CommandoClient) {
 
         // unban the user
         guild.members.unban(member.user).then(async () => {
-          await poolBan.query(
-            'UPDATE users_banned.users SET ' +
-                        'is_active = false,' +
-                        'modified_at = now() ' +
-                        'WHERE ' +
-                        'uid = $1 ' +
-                        'AND guild_id = $2' +
-                        'AND time = $3' +
-                        'AND is_active = true',
-            [row.uid, row.guildId, row.time]
-          );
+          utils.unbanMemberAndSendEmbed(member, null, row.reason);
         }).catch(console.error);
       }
     });
@@ -57,7 +52,7 @@ export async function checkMuted (client: CommandoClient) {
   const mutedUsers = await getMutedMembers();
 
   if (mutedUsers !== undefined) {
-    mutedUsers.forEach(async (row: MutedUserDb) => {
+    mutedUsers.forEach(async (row: MutedUser) => {
       const guild = await client.guilds.fetch(row.guildId);
       // guild does not exist (should not happen)
       if (!guild) {
@@ -66,38 +61,36 @@ export async function checkMuted (client: CommandoClient) {
 
       // check if member exists in guild and perform unmute if username
       // changed to appropriate
-      if (row.isActive === true) {
+      if ((row.isActive === true) && (row.reason !== undefined)) {
         try {
           const member = await guild.members.fetch(row.uid);
 
           // get the old username from the reason message (offset is 24)
           const oldUserName = row.reason.substring(24, row.reason.length);
 
-          // check if 2 hours has passed and user has to be
-          // kicked
+          // check if 2 hours has passed and user has to be kicked
           if ((row.kickTimer === true)) {
             const now = Date.now();
-            const createdAt = new Date(row.createdAt).getTime();
+            if (row.createdAt !== undefined) {
+              const createdAt = new Date(row.createdAt).getTime();
 
-            if ((now - createdAt) >= (2 * utils.HOUR * utils.MILIS)) {
-              // update the db and kick the user
-              await poolMute.query(
-                'UPDATE users_muted.users SET ' +
-                  'is_active = false,' +
-                  'modified_at = now() ' +
-                  'WHERE ' +
-                  'uid = $1 ' +
-                  'AND guild_id = $2' +
-                  'AND is_active = true',
-                [row.uid, row.guildId]
-              );
+              if ((now - createdAt) >= (2 * utils.HOUR * utils.MILIS)) {
+                updateMutedUserToInactive(
+                  {
+                    uid: row.uid,
+                    guildId: row.guildId,
+                    isActive: false,
+                    kickTimer: false
+                  }
+                );
 
-              await member.send('You have been kicked from the ' +
+                await member.send('You have been kicked from the ' +
                                 `server for: ${row.reason}. ` +
                                 'Please change your username before ' +
-                                'joining again!').catch(console.log);
+                                'joining again!').catch(console.error);
 
-              member.kick(`${row.reason}`);
+                member.kick(`${row.reason}`);
+              }
             }
           // check if username was changed
           } else if (member.user.username.localeCompare(oldUserName)) {
@@ -110,41 +103,24 @@ export async function checkMuted (client: CommandoClient) {
               // username still inapproptiate but it was changed
               // set current as non active
               // and insert the newest username
-              await poolMute.query(
-                'UPDATE users_muted.users SET ' +
-                  'is_active = false,' +
-                  'kick_timer = false,' +
-                  'modified_at = now() ' +
-                  'WHERE ' +
-                  'uid = $1 ' +
-                  'AND guild_id = $2' +
-                  'AND is_active = true',
-                [row.uid, row.guildId]
-              );
+              updateMutedUserToInactive({
+                uid: row.uid,
+                guildId: row.guildId,
+                isActive: false,
+                kickTimer: false
+              });
 
               const reason = 'Inappropriate username: ' +
                 member.user.username;
 
               // insert user id and guild id into a database.
-              poolMute.query(
-                'INSERT INTO users_muted.users (' +
-                  'uid,' +
-                  'reason,' +
-                  'guild_id,' +
-                  'is_active,' +
-                  'kick_timer,' +
-                  'ban_count,' +
-                  'created_at,' +
-                  'modified_at)' +
-                  'VALUES ($1, $2, $3, true, $4, $5, now(), now())',
-                [
-                  member.id,
-                  reason,
-                  member.guild.id,
-                  userNameCheck.kickTimer,
-                  row.banCount
-                ]
-              );
+              insertUserIntoMutedDb({
+                uid: member.id,
+                guildId: member.guild.id,
+                reason: reason,
+                kickTimer: userNameCheck.kickTimer,
+                banCount: 0
+              });
 
               // notify the user that the username is still inappropriate
               member.send('Your changed username is still inappropriate. ' +
@@ -153,20 +129,16 @@ export async function checkMuted (client: CommandoClient) {
           }
         } catch (e) {
           if (e.message === 'Unknown Member') {
-            console.log(`User not found because ${e}`);
+            console.error(`User not found because ${e}`);
             // user was not found because the user has left
             // the server set is_active field to false to
             // not poll this log anymore
-            await poolMute.query(
-              'UPDATE users_muted.users SET ' +
-                            'is_active = false,' +
-                            'modified_at = now() ' +
-                            'WHERE ' +
-                            'uid = $1 ' +
-                            'AND guild_id = $2' +
-                            'AND is_active = true',
-              [row.uid, row.guildId]
-            );
+            updateMutedUserToInactive({
+              uid: row.uid,
+              guildId: row.guildId,
+              isActive: false,
+              kickTimer: row.kickTimer
+            });
           }
         }
       }
@@ -258,6 +230,7 @@ export async function muteInappropriateUsername (member: GuildMember) {
             }
 
             reaction.users.remove(reactUser);
+            collector.stop();
           });
 
           collector.on('end', () => {

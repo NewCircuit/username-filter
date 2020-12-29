@@ -1,8 +1,17 @@
 import { Guild, GuildMember, Role, TextChannel } from 'discord.js';
-import { getMemberKickTimer, getActiveMutedMember, getNextDbRowID, poolBan, poolMute } from '../db/db';
+import {
+  getMemberKickTimer,
+  getActiveMutedMember,
+  getNextMuteDbRowID,
+  insertUserIntoMutedDb,
+  insertUserIntoBannedDb,
+  updateMutedUserToInactive,
+  updateMutedUserBanCounter,
+  updateBannedUserInactive
+} from '../db/db';
 import { bannableWords } from '../config/bannable-words.json';
 import { muteableWords } from '../config/muteable-words.json';
-import { MutedUserDb } from '../models/types';
+import { MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
 
 // Define some constants used in the app
@@ -79,29 +88,26 @@ export async function checkIfMemberMuted (member: GuildMember) {
 export async function checkTempBan (member: GuildMember) {
   const tempBanUser = await getMemberKickTimer(member);
 
-  if (tempBanUser) {
+  if (tempBanUser && (tempBanUser.reason !== undefined)) {
     // get the old username from the reason message (offset is 24)
     const oldUserName = tempBanUser.reason.substring(24,
       tempBanUser.reason.length);
 
-    if (!oldUserName.localeCompare(member.user.username)) {
+    if (!oldUserName.localeCompare(member.user.username) &&
+        tempBanUser.banCount !== undefined) {
       // increment the ban counter indicating how long the user will be
       // banned
       tempBanUser.banCount += 1;
       const banDuration = (tempBanUser.banCount) * DAYS_IN_MONTH;
 
       // update the data in the db for muted users
-      await poolMute.query(
-        'UPDATE users_muted.users SET ' +
-                'ban_count = $1,' +
-                'modified_at = now() ' +
-                'WHERE ' +
-                'uid = $2 ' +
-                'AND guild_id = $3' +
-                'AND kick_timer = true',
-        [tempBanUser.banCount,
-          member.user.id,
-          member.guild.id]
+
+      updateMutedUserBanCounter(
+        {
+          uid: member.user.id,
+          guildId: member.guild.id,
+          banCount: tempBanUser.banCount
+        }
       ).catch(console.error);
 
       // ban the member and send embed to the channel
@@ -180,34 +186,22 @@ export async function muteMemberAndSendEmbed (member: GuildMember,
   member.roles.add([mutedRole.id.toString(),
     vcMutedRole.id.toString()]).then(async () => {
     // insert user id and guild id into a database.
-    await poolMute.query(
-      'INSERT INTO users_muted.users (' +
-                'uid,' +
-                'guild_id,' +
-                'reason,' +
-                'is_active,' +
-                'kick_timer,' +
-                'ban_count,' +
-                'created_at,' +
-                'modified_at)' +
-                'VALUES ($1, $2, $3, true, $4, 0, now(), now())',
-      [
-        member.id,
-        member.guild.id,
-        reason,
-        kickTimer
-      ]
-    );
+    insertUserIntoMutedDb({
+      uid: member.id,
+      guildId: member.guild.id,
+      reason: reason,
+      kickTimer: kickTimer
+    });
 
-    const nextId = await getNextDbRowID();
+    const nextId = await getNextMuteDbRowID();
 
     let userDMMsg = 'You have been muted for having an inappropriate ' +
       'username. We have changed your nickname for you. ' +
       'Please change your username as soon as possible!';
 
     if (kickTimer) {
-      userDMMsg += ' Since your username contains racist slurs, you ' +
-        "will be kicked within two hours if you don't " +
+      userDMMsg += ' Since your username contains really offensive words, ' +
+        "you will be kicked within two hours if you don't " +
         'change it.';
     }
 
@@ -228,7 +222,7 @@ export async function muteMemberAndSendEmbed (member: GuildMember,
 
 // Update the user data into database, unmute them and send the embed
 export async function unmuteMemberAndSendEmbed (member: GuildMember,
-  dbData: MutedUserDb | null, reactMember: GuildMember | null) {
+  dbData: MutedUser | null, reactMember: GuildMember | null) {
   const findRoleMuted = (role: Role) => role.name === 'Muted';
   const findRoleVCMuted = (role: Role) => role.name === 'VCMuted';
   const mutedRole = member.guild.roles.cache.find(findRoleMuted);
@@ -248,22 +242,15 @@ export async function unmuteMemberAndSendEmbed (member: GuildMember,
   member.roles.remove([mutedRole.id.toString(),
     vcMutedRole.id.toString()]).then(
     async () => {
-      await poolMute.query(
-        'UPDATE users_muted.users SET ' +
-          'is_active = false,' +
-          'kick_timer = false,' +
-          'modified_at = now() ' +
-          'WHERE ' +
-          'uid = $1 ' +
-          'AND guild_id = $2' +
-          'AND is_active = true',
-        [dbData === null ? member.id : dbData.uid,
-          dbData === null ? member.guild.id : dbData.guildId]
-      );
+      updateMutedUserToInactive({
+        uid: (dbData === null ? member.id : dbData.uid),
+        guildId: (dbData === null ? member.guild.id : dbData.guildId),
+        isActive: false,
+        kickTimer: false
+      });
 
       member.send('You have been unmuted. Your new ' +
-        'username is your nickname for now. ' +
-        'You can change it in <channel_name>!')
+        'username is your nickname for now.')
         .catch(console.error);
 
       member.setNickname(`${member.user.username}`);
@@ -313,21 +300,13 @@ export async function banMemberAndSendEmbed (member: GuildMember,
   }
 
   // insert the user into the db tracking banned users
-  await poolBan.query('INSERT INTO users_banned.users (' +
-    'uid,' +
-    'guild_id,' +
-    'reason,' +
-    'time,' +
-    'is_active,' +
-    'created_at,' +
-    'modified_at)' +
-    'VALUES ($1, $2, $3, $4, true, now(), now())',
-  [
-    member.id.toString(),
-    member.guild.id.toString(),
-    banReason,
-    time
-  ]
+  await insertUserIntoBannedDb(
+    {
+      uid: member.id,
+      reason: banReason,
+      guildId: member.guild.id,
+      time: time
+    }
   ).catch(console.error);
 
   const ch = member.guild.channels.cache
@@ -335,6 +314,36 @@ export async function banMemberAndSendEmbed (member: GuildMember,
 
   if (ch) {
     await embeds.createEmbedForBan(member, reactMember, banReason).then(
+      (embed) => {
+        ch.send(embed);
+      });
+  }
+
+  // ban the user
+  member.ban({ reason: banReason });
+}
+
+// Insert the user data into ban database, ban them and send the embed
+export async function unbanMemberAndSendEmbed (member: GuildMember,
+  reactMember: GuildMember | null, banReason: string) {
+  // inform the user about the ban
+  await member.send('You will be temporarily banned for not changing ' +
+  'your username.').catch(console.error);
+
+  // insert the user into the db tracking banned users
+  await updateBannedUserInactive(
+    {
+      uid: member.id,
+      reason: banReason,
+      guildId: member.guild.id
+    }
+  ).catch(console.error);
+
+  const ch = member.guild.channels.cache
+    .find(ch => ch.name === 'punishment-track') as TextChannel;
+
+  if (ch) {
+    await embeds.createEmbedForUnban(member, reactMember, banReason).then(
       (embed) => {
         ch.send(embed);
       });

@@ -2,7 +2,7 @@ import { Message, MessageEmbed } from 'discord.js';
 import { Command, CommandoClient, CommandoMessage } from 'discord.js-commando';
 import * as utils from '../../bot/utils';
 import * as config from '../../config/config.json';
-import { InappropriateWordsDb, ListArgs } from '../../models/types';
+import { InappropriateWords, ListArgs } from '../../models/types';
 import { getBannableWords, getMuteableWords } from '../../db/db';
 
 export default class ListCommand extends Command {
@@ -85,7 +85,7 @@ export default class ListCommand extends Command {
             if (muteableWords !== undefined) {
             // Function to generate an embed
               const generateEmbed = (start: number,
-                array: InappropriateWordsDb[]) => {
+                array: InappropriateWords[]) => {
                 const current = array.slice(start,
                   start + utils.MAX_EMBED_FIELDS);
                 const maxPages = (Math.ceil(muteableWords.length /

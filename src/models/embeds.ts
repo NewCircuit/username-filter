@@ -1,5 +1,6 @@
 import { MessageEmbed, GuildMember } from 'discord.js';
 
+// create an embed notifying the unmute of a user
 export async function createEmbedForUnmute (member: GuildMember,
   reactMember: GuildMember | null): Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
@@ -7,7 +8,7 @@ export async function createEmbedForUnmute (member: GuildMember,
   const muteEmbed = new MessageEmbed()
     .setColor('#FF7F50')
     .setTitle('**Inappropriate username ' + ((reactMember === null)
-      ? 'autounmute**'
+      ? 'auto unmute**'
       : 'unmute**'))
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
@@ -24,6 +25,7 @@ export async function createEmbedForUnmute (member: GuildMember,
   return muteEmbed;
 }
 
+// create an embed notifying banning of a user
 export async function createEmbedForBan (member: GuildMember,
   reactMember: GuildMember | null, reason: string): Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
@@ -49,6 +51,7 @@ export async function createEmbedForBan (member: GuildMember,
   return banEmbed;
 }
 
+// create an embed notifying kicking a user
 export async function createEmbedForKick (member: GuildMember,
   reactMember: GuildMember | null, reason: string): Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
@@ -72,6 +75,7 @@ export async function createEmbedForKick (member: GuildMember,
   return kickEmbed;
 }
 
+// create an embed notifying muting a user
 export async function createEmbedForMute (member: GuildMember,
   reactMember: GuildMember | null, reason: string): Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
@@ -97,6 +101,34 @@ export async function createEmbedForMute (member: GuildMember,
   return muteEmbed;
 }
 
+// create an embed notifying unbanning a user
+export async function createEmbedForUnban (member: GuildMember,
+  reactMember: GuildMember | null, reason: string): Promise<MessageEmbed> {
+  const memberAvatar = member.user.avatarURL();
+
+  const banEmbed = new MessageEmbed()
+    .setColor('#FF7F50')
+    .setTitle('**Inappropriate username ' + ((reactMember === null)
+      ? 'auto unban**'
+      : 'mute**'))
+    .setThumbnail(memberAvatar !== null ? memberAvatar : '')
+    .addFields(
+      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Reason', value: `${reason}` }
+    )
+    .setTimestamp()
+    .setFooter(`ID: ${member.user.id}`);
+
+  if (reactMember !== null) {
+    banEmbed.addField('Action performed by: ',
+      `${reactMember.user.tag} <@${reactMember.id}>`);
+  }
+
+  return banEmbed;
+}
+
+// create an embed for Tier Members which will "prompt" a moderator reaction
+// and based on that, will perform one of the actions
 export async function createEmbedForTierMemberAction (member: GuildMember)
   : Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
