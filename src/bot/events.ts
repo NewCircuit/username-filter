@@ -4,7 +4,6 @@ import * as utils from './utils';
 import {
   getMutedMembers,
   getBannedMembers,
-  insertUserIntoMutedDb,
   updateMutedUserToInactive
 } from '../db/db';
 import { BannedUser, MutedUser } from '../models/types';
@@ -103,28 +102,20 @@ export async function checkMuted (client: CommandoClient) {
               // username still inapproptiate but it was changed
               // set current as non active
               // and insert the newest username
-              updateMutedUserToInactive({
-                uid: row.uid,
-                guildId: row.guildId,
-                isActive: false,
-                kickTimer: false
-              });
+              updateMutedUserToInactive(
+                {
+                  uid: row.uid,
+                  guildId: row.guildId,
+                  isActive: false,
+                  kickTimer: row.kickTimer
+                }
+              );
 
               const reason = 'Inappropriate username: ' +
                 member.user.username;
 
-              // insert user id and guild id into a database.
-              insertUserIntoMutedDb({
-                uid: member.id,
-                guildId: member.guild.id,
-                reason: reason,
-                kickTimer: userNameCheck.kickTimer,
-                banCount: 0
-              });
-
-              // notify the user that the username is still inappropriate
-              member.send('Your changed username is still inappropriate. ' +
-                'Please change your username to something appropriate!');
+              utils.mutedMemberUpdate(member, userNameCheck.kickTimer,
+                null, row.reason, reason);
             }
           }
         } catch (e) {
@@ -220,7 +211,6 @@ export async function muteInappropriateUsername (member: GuildMember) {
                       reason);
                     break;
                   case '❌':
-                    collector.stop();
                     break;
                   default:
                     console.error('Something weird happened!');
@@ -228,8 +218,6 @@ export async function muteInappropriateUsername (member: GuildMember) {
                 }
               }
             }
-
-            reaction.users.remove(reactUser);
             collector.stop();
           });
 

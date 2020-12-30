@@ -177,6 +177,42 @@ export function checkIfUserDiscordMod (member: GuildMember | undefined) {
   return false;
 }
 
+// update muted member, in a case when the user changed inappropriate username
+// to another inappropriate one
+export async function mutedMemberUpdate (member: GuildMember,
+  kickTimer: boolean, reactMember: GuildMember | null,
+  oldReason: string, newReason: string) {
+  // insert user id and guild id into a database.
+  insertUserIntoMutedDb({
+    uid: member.id,
+    guildId: member.guild.id,
+    reason: newReason,
+    kickTimer: kickTimer,
+    banCount: 0
+  });
+
+  let userDMMsg = 'Your changed username is still inappropriate. ' +
+    'Please change your username to something appropriate!';
+
+  if (kickTimer) {
+    userDMMsg += ' Since your username contains really offensive words, ' +
+      "you will be kicked within two hours if you don't " +
+      'change it.';
+  }
+
+  member.send(userDMMsg).catch(console.error);
+
+  const ch = member.guild.channels.cache
+    .find(ch => ch.name === 'punishment-track') as TextChannel;
+
+  if (ch) {
+    embeds.createEmbedForUpdateMute(member, reactMember, oldReason, newReason)
+      .then((embed) => {
+        ch.send(embed);
+      });
+  }
+}
+
 // Insert the user data into database, mute them and send the embed
 export async function muteMemberAndSendEmbed (member: GuildMember,
   kickTimer: boolean, reactMember: GuildMember | null, reason: string) {
@@ -330,10 +366,11 @@ export async function banMemberAndSendEmbed (member: GuildMember,
     .find(ch => ch.name === 'punishment-track') as TextChannel;
 
   if (ch) {
-    await embeds.createEmbedForBan(member, reactMember, banReason).then(
-      (embed) => {
-        ch.send(embed);
-      });
+    await embeds.createEmbedForBan(member, reactMember, banReason, duration)
+      .then(
+        (embed) => {
+          ch.send(embed);
+        });
   }
 
   // ban the user

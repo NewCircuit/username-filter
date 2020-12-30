@@ -36,10 +36,14 @@ bot.on('ready', async () => {
 // When a member joins the guild, check if they should be tempbanned and
 // if they have an inappropriate username
 bot.on('guildMemberAdd', async (member) => {
-  const tempBan = await utils.checkTempBan(member);
-  if (!tempBan) {
-    events.muteInappropriateUsername(member);
-  }
+  // Add a delay to give other bots chance to first assign a roles to new
+  // members. Might be increased to bigger value!
+  setTimeout(async () => {
+    const tempBan = await utils.checkTempBan(member);
+    if (!tempBan) {
+      events.muteInappropriateUsername(member);
+    }
+  }, 100);
 });
 
 // When a user changes their username, check if it is inappropriate

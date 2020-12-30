@@ -6,13 +6,13 @@ export async function createEmbedForUnmute (member: GuildMember,
   const memberAvatar = member.user.avatarURL();
 
   const muteEmbed = new MessageEmbed()
-    .setColor('#FF7F50')
+    .setColor('#74B72E')
     .setTitle('**Inappropriate username ' + ((reactMember === null)
       ? 'auto unmute**'
       : 'unmute**'))
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` }
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` }
     )
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
@@ -27,18 +27,19 @@ export async function createEmbedForUnmute (member: GuildMember,
 
 // create an embed notifying banning of a user
 export async function createEmbedForBan (member: GuildMember,
-  reactMember: GuildMember | null, reason: string): Promise<MessageEmbed> {
+  reactMember: GuildMember | null, reason: string, duration: number | null):
+  Promise<MessageEmbed> {
   const memberAvatar = member.user.avatarURL();
 
   const banEmbed = new MessageEmbed()
-    .setColor('#FF7F50')
+    .setColor('#B90E0A')
     .setTitle('**Inappropriate username ' + ((reactMember === null)
       ? 'autoban**'
       : 'ban**'))
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` },
-      { name: 'Reason', value: reason }
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Reason:', value: reason }
     )
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
@@ -47,6 +48,10 @@ export async function createEmbedForBan (member: GuildMember,
     banEmbed.addField('Action performed by: ',
     `${reactMember.user.tag} <@${reactMember.id}>`);
   }
+
+  banEmbed.addField('Banned for:', ((duration !== null)
+    ? `${duration}d`
+    : 'Permanently banned'));
 
   return banEmbed;
 }
@@ -57,12 +62,12 @@ export async function createEmbedForKick (member: GuildMember,
   const memberAvatar = member.user.avatarURL();
 
   const kickEmbed = new MessageEmbed()
-    .setColor('#FF7F50')
+    .setColor('#FCE205')
     .setTitle('**Inappropriate username kick**')
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` },
-      { name: 'Reason', value: reason }
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Reason:', value: reason }
     )
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
@@ -87,8 +92,37 @@ export async function createEmbedForMute (member: GuildMember,
       : 'mute**'))
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` },
-      { name: 'Reason', value: `${reason}` }
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Reason:', value: `${reason}` }
+    )
+    .setTimestamp()
+    .setFooter(`ID: ${member.user.id}`);
+
+  if (reactMember !== null) {
+    muteEmbed.addField('Action performed by: ',
+      `${reactMember.user.tag} <@${reactMember.id}>`);
+  }
+
+  return muteEmbed;
+}
+
+// create an embed notifying that muted user updated username to another
+// inappropriate username
+export async function createEmbedForUpdateMute (member: GuildMember,
+  reactMember: GuildMember | null, oldReason: string, newReason: string):
+  Promise<MessageEmbed> {
+  const memberAvatar = member.user.avatarURL();
+
+  const muteEmbed = new MessageEmbed()
+    .setColor('#FF7F50')
+    .setTitle('**Inappropriate username ' + ((reactMember === null)
+      ? 'autoupdate**'
+      : 'update**'))
+    .setThumbnail(memberAvatar !== null ? memberAvatar : '')
+    .addFields(
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Old reason:', value: `${oldReason}` },
+      { name: 'New reason:', value: `${newReason}` }
     )
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
@@ -107,14 +141,14 @@ export async function createEmbedForUnban (member: GuildMember,
   const memberAvatar = member.user.avatarURL();
 
   const banEmbed = new MessageEmbed()
-    .setColor('#FF7F50')
+    .setColor('#74B72E')
     .setTitle('**Inappropriate username ' + ((reactMember === null)
       ? 'auto unban**'
       : 'mute**'))
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender', value: `${member.user.tag} <@${member.id}>` },
-      { name: 'Reason', value: `${reason}` }
+      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Reason:', value: `${reason}` }
     )
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
@@ -134,7 +168,7 @@ export async function createEmbedForTierMemberAction (member: GuildMember)
   const memberAvatar = member.user.avatarURL();
 
   const tierMemberActionEmbed = new MessageEmbed()
-    .setColor('#FFF700')
+    .setColor('#0492C2')
     .setTitle('**Inappropriate username**')
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
