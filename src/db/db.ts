@@ -222,6 +222,22 @@ export async function updateMutedUserToInactive (user: MutedUser):
   );
 }
 
+// sets the kick timer fields of muted inactive user to false
+// happens when user was kicked after having an inappropriate username
+export async function updateKickTimerUser (user: MutedUser):
+  Promise<QueryResult<MutedUserDb>> {
+  return poolMute.query(
+    'UPDATE users_muted.users SET ' +
+      'kick_timer = $3,' +
+      'modified_at = now() ' +
+      'WHERE ' +
+      'uid = $1 ' +
+      'AND guild_id = $2' +
+      'AND kick_timer = true',
+    [user.uid, user.guildId, user.kickTimer]
+  );
+}
+
 // updates the ban count of a certain user
 export async function updateMutedUserBanCounter (user: MutedUser):
 Promise<QueryResult<MutedUserDb>> {

@@ -9,7 +9,8 @@ import {
   updateMutedUserBanCounter,
   updateBannedUserInactive,
   getBannableWords,
-  getMuteableWords
+  getMuteableWords,
+  updateKickTimerUser
 } from '../db/db';
 import { MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
@@ -121,12 +122,11 @@ export async function checkTempBan (member: GuildMember) {
         return true;
       } else {
         // user joined the server back but not with the same bad username
-        // reevaluate the new username
-        updateMutedUserToInactive(
+        // set kick timer to false
+        updateKickTimerUser(
           {
             uid: member.user.id,
             guildId: member.guild.id,
-            isActive: false,
             kickTimer: false
           }
         ).catch(console.error);
