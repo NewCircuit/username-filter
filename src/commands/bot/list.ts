@@ -151,11 +151,12 @@ export default class ListCommand extends Command {
                                 message.edit(generateEmbed(currentIndex,
                                   muteableWords));
                               } else {
-                                // Delete the message after 2 seconds
-                                (await message.channel
-                                  .send('Wrong page number!'))
-                                  .delete({ timeout: 2000 });
-                                await userMsg.delete();
+                                // Delete the message after 5 seconds
+                                message.channel
+                                  .send('Wrong page number!').then(async (msg) => {
+                                    await msg.delete({ timeout: 5000 });
+                                    await userMsg.delete();
+                                  });
                               }
                             });
 
@@ -166,11 +167,13 @@ export default class ListCommand extends Command {
                           });
                         });
                       } else {
-                        // show previous page
-                        if (reaction.emoji.name === '⬅️' &&
-                          currentIndex !== 0) {
+                        if ((reaction.emoji.name === '⬅️') &&
+                          (currentIndex !== 0)) {
+                          // show previous page
                           currentIndex -= utils.MAX_EMBED_FIELDS;
-                        } else if (reaction.emoji.name === '➡️') {
+                        } else if (reaction.emoji.name === '➡️' &&
+                          (currentIndex <= (muteableWords.length -
+                            utils.MAX_EMBED_FIELDS))) {
                           // show next page
                           currentIndex += utils.MAX_EMBED_FIELDS;
                         }
