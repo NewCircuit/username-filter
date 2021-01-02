@@ -24,3 +24,9 @@ coverage
 
 # Dependency directory
 node_modules
+
+# Package lock
+package-lock.json
+
+# vscode files
+.vscode
