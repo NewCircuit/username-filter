@@ -1,18 +1,25 @@
-import { TextChannel, GuildMember, MessageReaction, User } from 'discord.js';
+import {
+  TextChannel, GuildMember, MessageReaction, User,
+} from 'discord.js';
 import { CommandoClient } from 'discord.js-commando';
 import * as utils from './utils';
 import {
   getMutedMembers,
   getBannedMembers,
-  updateMutedUserToInactive
+  updateMutedUserToInactive,
 } from '../db/db';
 import { BannedUser, MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
+import * as config from '../config/config.json';
 
-// Function that periodically (every second) checks if there are banned users
-// in a database. If a user is found, we check if the required time elapsed. If
-// it did, unban the user.
-export async function checkBanned (client: CommandoClient) {
+/**
+ * Function that periodically (every second) checks if there are banned users
+ * in a database. If a user is found, we check if the required time elapsed. If
+ * it did, unban the user.
+ * @param {CommandoClient} client
+ * @returns {Promise<void>}
+ */
+export async function checkBanned(client: CommandoClient): Promise<void> {
   const bannedUsers = await getBannedMembers();
 
   if (bannedUsers !== undefined) {
@@ -31,23 +38,25 @@ export async function checkBanned (client: CommandoClient) {
         }
 
         // unban the user
-        guild.members.unban(member.user).then(async () => {
-          utils.unbanMemberAndSendEmbed(member, null, row.reason);
-        }).catch(console.error);
+        const user = guild.members.unban(member.user);
+
+        if (user) {
+          await utils.unbanMemberAndSendEmbed(member, null, row.reason);
+        }
       }
     });
   }
-
-  setTimeout(() => {
-    checkBanned(client);
-  }, 1000);
 }
 
-// Function that periodically (every second) checks if there are muted users
-// with inappropriate username in a database. If a user is found, we check if
-// the user has changed his username. If that is the case, remove the muted
-// roles from the user.
-export async function checkMuted (client: CommandoClient) {
+/**
+ * Function that periodically (every second) checks if there are muted users
+ * with inappropriate username in a database. If a user is found, we check if
+ * the user has changed his username. If that is the case, remove the muted
+ * roles from the user.
+ * @param {CommandoClient} client
+ * @returns {Promise<void>}
+ */
+export async function checkMuted(client: CommandoClient): Promise<void> {
   const mutedUsers = await getMutedMembers();
 
   if (mutedUsers !== undefined) {
@@ -69,54 +78,10 @@ export async function checkMuted (client: CommandoClient) {
 
           // check if 2 hours has passed and user has to be kicked
           if ((row.kickTimer === true)) {
-            const now = Date.now();
-            if (row.createdAt !== undefined) {
-              const createdAt = new Date(row.createdAt).getTime();
-
-              if ((now - createdAt) >= (2 * utils.HOUR * utils.MILIS)) {
-                updateMutedUserToInactive(
-                  {
-                    uid: row.uid,
-                    guildId: row.guildId,
-                    isActive: false,
-                    kickTimer: row.kickTimer
-                  }
-                );
-
-                await member.send('You have been kicked from the ' +
-                                `server for: ${row.reason}. ` +
-                                'Please change your username before ' +
-                                'joining again!').catch(console.error);
-
-                member.kick(`${row.reason}`);
-              }
-            }
+            utils.checkIfMemberNeedsKick(member, row);
           // check if username was changed
           } else if (member.user.username.localeCompare(oldUserName)) {
-            // check if username is still inappropriate
-            const userNameCheck = await utils
-              .checkUsername(member.user.username);
-            if (!userNameCheck.shouldMute) {
-              utils.unmuteMemberAndSendEmbed(member, row, null);
-            } else {
-              // username still inapproptiate but it was changed
-              // set current as non active
-              // and insert the newest username
-              updateMutedUserToInactive(
-                {
-                  uid: row.uid,
-                  guildId: row.guildId,
-                  isActive: false,
-                  kickTimer: row.kickTimer
-                }
-              );
-
-              const reason = 'Inappropriate username: ' +
-                member.user.username;
-
-              utils.mutedMemberUpdate(member, userNameCheck.kickTimer,
-                null, row.reason, reason);
-            }
+            utils.checkIfStillMuteable(member, row);
           }
         } catch (e) {
           if (e.message === 'Unknown Member') {
@@ -128,104 +93,57 @@ export async function checkMuted (client: CommandoClient) {
               uid: row.uid,
               guildId: row.guildId,
               isActive: false,
-              kickTimer: row.kickTimer
+              kickTimer: row.kickTimer,
             });
           }
         }
       }
     });
   }
-
-  setTimeout(() => {
-    checkMuted(client);
-  }, 1000);
 }
 
-export async function muteInappropriateUsername (member: GuildMember) {
+/**
+ * If a user has an inapproprirate username, either ask for action for Tier
+ * Members, or mute them for non-members.
+ * @param {GuildMember} member
+ * @returns {Promise<void>}
+ */
+export async function muteInappropriateUsername(member: GuildMember):
+  Promise<void> {
   const userNameCheck = await utils.checkUsername(member.user.username);
-  if (userNameCheck.shouldMute) {
-    const reason = 'Inappropriate username: ' + member.user.username;
+  if ((userNameCheck !== undefined) && userNameCheck.shouldMute) {
+    const reason = `Inappropriate username: ${member.user.username}`;
 
     // If user is a YT member, ask Moderators for next steps using reaction
     // embeds.
     if (utils.checkIfUserFloorGang(member)) {
-      embeds.createEmbedForTierMemberAction(member).then((embed) => {
-        const ch = member.guild.channels.cache
-          .find(ch => ch.name === 'automod') as TextChannel;
+      const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
+      const automodChannel = member.guild.channels.cache
+        .get(config.automod_ch_id) as TextChannel;
 
-        ch.send(embed).then(async (channelEmbed) => {
-          await channelEmbed.react('🔇');
-          await channelEmbed.react('👢');
-          await channelEmbed.react('1⃣');
-          await channelEmbed.react('2⃣');
-          await channelEmbed.react('3⃣');
-          await channelEmbed.react('🔨');
-          await channelEmbed.react('❌');
+      if (automodChannel !== undefined) {
+        const channelEmbed = await automodChannel.send(tierMemberEmbed);
+        await embeds.reactToTierEmbed(channelEmbed);
 
-          const filter = (reaction: MessageReaction) => {
-            return ((reaction.emoji.name === '🔇') ||
-                (reaction.emoji.name === '👢') ||
-                (reaction.emoji.name === '1⃣') ||
-                (reaction.emoji.name === '2⃣') ||
-                (reaction.emoji.name === '3⃣') ||
-                (reaction.emoji.name === '🔨') ||
-                (reaction.emoji.name === '❌'));
-          };
+        const collector = channelEmbed.createReactionCollector(
+          embeds.filterTierEmbedReaction(),
+          { time: utils.DAY * utils.MILIS },
+        );
 
-          const collector = channelEmbed.createReactionCollector(filter,
-            { time: utils.DAY * utils.MILIS });
-
-          collector.on('collect', async (reaction: MessageReaction,
-            reactUser: User) => {
-            const reactMember = await utils.getMember(reactUser.id,
-              member.guild);
-
-            if (reactMember) {
-              if (utils.checkIfUserDiscordMod(reactMember)) {
-                switch (reaction.emoji.name) {
-                  case '🔇':
-                    utils.muteMemberAndSendEmbed(member, false, reactMember,
-                      reason);
-                    break;
-                  case '👢':
-                    utils.kickMemberAndSendEmbed(member, reactMember, reason);
-                    collector.stop();
-                    break;
-                  case '1⃣':
-                    utils.banMemberAndSendEmbed(member, reactMember,
-                      utils.DAYS_IN_WEEK, reason);
-                    collector.stop();
-                    break;
-                  case '2⃣':
-                    utils.banMemberAndSendEmbed(member, reactMember,
-                      utils.DAYS_HALF_A_MONTH, reason);
-                    collector.stop();
-                    break;
-                  case '3⃣':
-                    utils.banMemberAndSendEmbed(member, reactMember,
-                      utils.DAYS_IN_MONTH, reason);
-                    collector.stop();
-                    break;
-                  case '🔨':
-                    utils.banMemberAndSendEmbed(member, reactMember, null,
-                      reason);
-                    break;
-                  case '❌':
-                    break;
-                  default:
-                    console.error('Something weird happened!');
-                    break;
-                }
-              }
-            }
+        collector.on('collect', async (reaction: MessageReaction,
+          reactUser: User) => {
+          const actionDone = await embeds
+            .performActionOnTierEmbedReaction(member, reactUser, reaction,
+              reason);
+          if (actionDone) {
             collector.stop();
-          });
-
-          collector.on('end', () => {
-            channelEmbed.delete();
-          });
+          }
         });
-      });
+
+        collector.on('end', () => {
+          channelEmbed.delete();
+        });
+      }
     } else {
       utils.muteMemberAndSendEmbed(member, userNameCheck.kickTimer, null,
         reason);

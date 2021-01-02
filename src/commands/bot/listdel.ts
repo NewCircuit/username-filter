@@ -6,11 +6,11 @@ import { ListArgs } from '../../models/types';
 import {
   getBannableWords,
   getMuteableWords,
-  deleteInapproppriateWord
+  deleteInapproppriateWord,
 } from '../../db/db';
 
 export default class ListAddCommand extends Command {
-  constructor (bot: CommandoClient) {
+  constructor(bot: CommandoClient) {
     super(bot, {
       name: 'listdel',
       aliases: ['ld'],
@@ -21,21 +21,21 @@ export default class ListAddCommand extends Command {
         {
           key: 'listType',
           prompt: 'List type from which to delete the word (bannable or muteable)',
-          type: 'string'
+          type: 'string',
         },
         {
           key: 'listWord',
           prompt: 'Word that will be deleted.',
-          type: 'string'
-        }
+          type: 'string',
+        },
       ],
       argsPromptLimit: 2,
       argsCount: 2,
-      argsType: 'multiple'
+      argsType: 'multiple',
     });
   }
 
-  public async run (msg: CommandoMessage, { listType, listWord }: ListArgs)
+  public async run(msg: CommandoMessage, { listType, listWord }: ListArgs)
     : Promise<Message | Message[] | null> {
     let returnPromise = null;
 
@@ -52,12 +52,10 @@ export default class ListAddCommand extends Command {
                 // fetch the muteable words from database
                 const muteableWords = await getMuteableWords();
                 if (muteableWords !== undefined) {
-                  if ((muteableWords.some(({ word }) => {
-                    return listWord === word;
-                  }))) {
+                  if ((muteableWords.some(({ word }) => listWord === word))) {
                     deleteInapproppriateWord(listWord);
-                    returnPromise = msg.say(`Deleted ${listWord} ` +
-                      'from the muteable list!');
+                    returnPromise = msg.say(`Deleted ${listWord} `
+                      + 'from the muteable list!');
                   } else {
                     returnPromise = msg.say('Wrong word provided!');
                   }
@@ -70,24 +68,21 @@ export default class ListAddCommand extends Command {
                 const bannableWords = await getBannableWords();
 
                 if (bannableWords !== undefined) {
-                  if ((bannableWords.some(({ word }) => {
-                    return listWord === word;
-                  }))) {
+                  if ((bannableWords.some(({ word }) => listWord === word))) {
                     deleteInapproppriateWord(listWord);
-                    returnPromise = msg.say(`Deleted ${listWord} ` +
-                      'from the bannable list!');
+                    returnPromise = msg.say(`Deleted ${listWord} `
+                      + 'from the bannable list!');
                   } else {
                     returnPromise = msg.say('Wrong word provided!');
                   }
                 }
               } else {
-                returnPromise = msg.say('Deleting words from bannable list ' +
-                  'is only possible from DMs!');
+                returnPromise = msg.say('Deleting words from bannable list '
+                  + 'is only possible from DMs!');
               }
               break;
             default:
               returnPromise = msg.say('Wrong list name provided!');
-              break;
           }
         }
       }

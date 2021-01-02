@@ -6,11 +6,11 @@ import { ListArgs } from '../../models/types';
 import {
   getBannableWords,
   getMuteableWords,
-  insertInapproppriateWord
+  insertInapproppriateWord,
 } from '../../db/db';
 
 export default class ListAddCommand extends Command {
-  constructor (bot: CommandoClient) {
+  constructor(bot: CommandoClient) {
     super(bot, {
       name: 'listadd',
       aliases: ['la'],
@@ -21,21 +21,21 @@ export default class ListAddCommand extends Command {
         {
           key: 'listType',
           prompt: 'List type in which to add the word (bannable or muteable)',
-          type: 'string'
+          type: 'string',
         },
         {
           key: 'listWord',
           prompt: 'Word that will be added to the list',
-          type: 'string'
-        }
+          type: 'string',
+        },
       ],
       argsPromptLimit: 2,
       argsCount: 2,
-      argsType: 'multiple'
+      argsType: 'multiple',
     });
   }
 
-  public async run (msg: CommandoMessage, { listType, listWord }: ListArgs)
+  public async run(msg: CommandoMessage, { listType, listWord }: ListArgs)
     : Promise<Message | Message[] | null> {
     let returnPromise = null;
 
@@ -53,15 +53,13 @@ export default class ListAddCommand extends Command {
                 const muteableWords = await getMuteableWords();
 
                 if (muteableWords !== undefined) {
-                  if (!(muteableWords.some(({ word }) => {
-                    return listWord === word;
-                  }))) {
+                  if (!(muteableWords.some(({ word }) => listWord === word))) {
                     insertInapproppriateWord(listWord, false);
-                    returnPromise = msg.say(`Added ${listWord} ` +
-                     'to the muteable list!');
+                    returnPromise = msg.say(`Added ${listWord} `
+                     + 'to the muteable list!');
                   } else {
-                    returnPromise = msg.say('Word already exists in ' +
-                    'the muteable list!');
+                    returnPromise = msg.say('Word already exists in '
+                    + 'the muteable list!');
                   }
                 }
               }
@@ -73,26 +71,23 @@ export default class ListAddCommand extends Command {
 
                 if (bannableWords !== undefined) {
                   if ((msg.guild === null)) {
-                    if (!(bannableWords.some(({ word }) => {
-                      return listWord === word;
-                    }))) {
+                    if (!(bannableWords.some(({ word }) => listWord === word))) {
                       insertInapproppriateWord(listWord, true);
-                      returnPromise = msg.say(`Added ${listWord} ` +
-                        'to the bannable list!');
+                      returnPromise = msg.say(`Added ${listWord} `
+                        + 'to the bannable list!');
                     } else {
-                      returnPromise = msg.say('Word already exists in ' +
-                      'the bannable list!');
+                      returnPromise = msg.say('Word already exists in '
+                      + 'the bannable list!');
                     }
                   } else {
-                    returnPromise = msg.say('Adding words to bannable list ' +
-                      'is only possible from DMs!');
+                    returnPromise = msg.say('Adding words to bannable list '
+                      + 'is only possible from DMs!');
                   }
                 }
               }
               break;
             default:
               returnPromise = msg.say('Wrong list name provided!');
-              break;
           }
         }
       }
