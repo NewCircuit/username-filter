@@ -163,7 +163,7 @@ export async function getAllInappropriateWords():
   const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: InappropriateWords) => {
+    words.rows.forEach((row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
@@ -185,7 +185,7 @@ export async function getMuteableWords():
   const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: InappropriateWords) => {
+    words.rows.forEach((row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
@@ -207,7 +207,7 @@ export async function getBannableWords():
   const wordsParsed = new Array<InappropriateWords>(0);
 
   if (words !== undefined) {
-    words.rows.forEach(async (row: InappropriateWords) => {
+    words.rows.forEach((row: InappropriateWords) => {
       wordsParsed.push(parseInappropriateWords(row));
     });
 
