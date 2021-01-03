@@ -330,9 +330,6 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
   const vcMutedRole = member.guild.roles.cache
     .find((role) => role.id === config.mute_role_ids.vc_muted_id);
 
-  console.log(mutedRole);
-  console.log(vcMutedRole);
-
   if (!mutedRole || !vcMutedRole) {
     // should not happen
     return;
@@ -535,9 +532,9 @@ export async function checkIfStillMuteable(member: GuildMember,
   const userNameCheck = await checkUsername(member.user.username);
   if ((userNameCheck) !== undefined && (dbData.reason !== undefined)) {
     if (!userNameCheck.shouldMute) {
-      unmuteMemberAndSendEmbed(member, dbData, null);
+      await unmuteMemberAndSendEmbed(member, dbData, null);
     } else {
-      mutedMemberUpdate(member, userNameCheck.kickTimer,
+      await mutedMemberUpdate(member, userNameCheck.kickTimer,
         null, dbData.reason);
     }
   }

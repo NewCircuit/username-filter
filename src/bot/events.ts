@@ -76,12 +76,12 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
           // get the old username from the reason message (offset is 24)
           const oldUserName = row.reason.substring(24, row.reason.length);
 
-          // check if 2 hours has passed and user has to be kicked
-          if ((row.kickTimer === true)) {
-            utils.checkIfMemberNeedsKick(member, row);
           // check if username was changed
-          } else if (member.user.username.localeCompare(oldUserName)) {
+          if (member.user.username.localeCompare(oldUserName)) {
             utils.checkIfStillMuteable(member, row);
+          } else if ((row.kickTimer === true)) {
+            // check if 2 hours has passed and user has to be kicked
+            utils.checkIfMemberNeedsKick(member, row);
           }
         } catch (e) {
           if (e.message === 'Unknown Member') {
