@@ -115,42 +115,45 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
 export async function muteInappropriateUsername(member: GuildMember):
   Promise<void> {
   const userNameCheck = await utils.checkUsername(member.user.username);
-  if ((userNameCheck !== undefined) && userNameCheck.shouldMute) {
-    const reason = `Inappropriate username: ${member.user.username}`;
+  if ((userNameCheck === undefined) || !userNameCheck.shouldMute) {
+    // if we couldn't check username, or the username is appropriate, return
+    return;
+  }
 
-    // If user is a YT member, ask Moderators for next steps using reaction
-    // embeds.
-    if (utils.checkIfUserFloorGang(member)) {
-      const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
-      const automodChannel = member.guild.channels.cache
-        .get(globals.CONFIG.automod_ch_id) as TextChannel;
+  const reason = `Inappropriate username: ${member.user.username}`;
 
-      if (automodChannel !== undefined) {
-        const channelEmbed = await automodChannel.send(tierMemberEmbed);
-        await embeds.reactToTierEmbed(channelEmbed);
+  // If user is a YT member, ask Moderators for next steps using reaction
+  // embeds.
+  if (utils.checkIfUserFloorGang(member)) {
+    const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
+    const automodChannel = member.guild.channels.cache
+      .get(globals.CONFIG.automod_ch_id) as TextChannel;
 
-        const collector = channelEmbed.createReactionCollector(
-          embeds.filterTierEmbedReaction(),
-          { time: globals.DAY * globals.MILIS },
-        );
+    if (automodChannel !== undefined) {
+      const channelEmbed = await automodChannel.send(tierMemberEmbed);
+      await embeds.reactToTierEmbed(channelEmbed);
 
-        collector.on('collect', async (reaction: MessageReaction,
-          reactUser: User) => {
-          const actionDone = await embeds
-            .performActionOnTierEmbedReaction(member, reactUser, reaction,
-              reason);
-          if (actionDone) {
-            collector.stop();
-          }
-        });
+      const collector = channelEmbed.createReactionCollector(
+        embeds.filterTierEmbedReaction(),
+        { time: globals.DAY * globals.MILIS },
+      );
 
-        collector.on('end', () => {
-          channelEmbed.delete();
-        });
-      }
-    } else {
-      utils.muteMemberAndSendEmbed(member, userNameCheck.kickTimer, null,
-        reason);
+      collector.on('collect', async (reaction: MessageReaction,
+        reactUser: User) => {
+        const actionDone = await embeds
+          .performActionOnTierEmbedReaction(member, reactUser, reaction,
+            reason);
+        if (actionDone) {
+          collector.stop();
+        }
+      });
+
+      collector.on('end', () => {
+        channelEmbed.delete();
+      });
     }
+  } else {
+    utils.muteMemberAndSendEmbed(member, userNameCheck.kickTimer, null,
+      reason);
   }
 }
