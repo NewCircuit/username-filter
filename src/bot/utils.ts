@@ -55,12 +55,14 @@ export async function checkUsername(username: string):
   const bannableWords = await getBannableWords();
   if ((muteableWords !== undefined) && (bannableWords !== undefined)) {
     for (let index = 0; index < bannableWords.length; index += 1) {
-      if (username.includes(bannableWords[index].word)) {
+      if (username.toLowerCase()
+        .includes(bannableWords[index].word.toLowerCase())) {
         return { shouldMute: true, kickTimer: bannableWords[index].bannable };
       }
     }
     for (let index = 0; index < muteableWords.length; index += 1) {
-      if (username.includes(muteableWords[index].word)) {
+      if (username.toLowerCase()
+        .includes(muteableWords[index].word.toLowerCase())) {
         return { shouldMute: true, kickTimer: muteableWords[index].bannable };
       }
     }
