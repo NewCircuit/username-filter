@@ -1,0 +1,21 @@
+{
+    "db_host": "localhost",
+    "db_port": 8000,
+    "db_user": "db_user",
+    "db_pass": "db_pass",
+    "token"  : "bot_token",
+    "prefix" : "-",
+    "guild_id": "guild_id",
+    "automod_ch_id": "automod_ch_id",
+    "punishment_ch_id": "punishment_ch_id",
+    "mute_role_ids": {
+        "muted_id": "muted_id",
+        "vc_muted_id": "vc_muted_id"
+    },
+    "discord_mod_role_ids": [
+        "discord_mod_role_ids"
+    ],
+    "tier_member_role_ids": [
+        "tier_member_role_ids"
+    ]
+}
