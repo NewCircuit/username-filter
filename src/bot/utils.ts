@@ -149,7 +149,7 @@ export async function mutedMemberUpdate(member: GuildMember,
       uid: member.id,
       guildId: member.guild.id,
       isActive: false,
-      kickTimer: kickTimerDb,
+      kickTimer: false,
     },
   );
 
@@ -372,7 +372,7 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   // create a ban response
   let banResponse = 'You will be';
   banResponse += (duration === null) ? ' permanently '
-    : ` temporarily (${duration.toString()}) `;
+    : ` temporarily (${duration.toString()} days) `;
   banResponse += 'banned for having an inappropriate username.';
   // inform the user about the ban
   await member.send(banResponse);
