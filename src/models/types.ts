@@ -105,11 +105,97 @@ export type BannedUserDb = {
 }
 
 /**
- * @type InappropriateWords
+ * @type InappropriateWord
  * @property {string} inappropriate word
  * @property {boolean} marks if the word is bannable or not
  */
-export type InappropriateWords = {
+export type InappropriateWord = {
   word: string,
   bannable: boolean
 }
+
+/**
+ * Type for Parsing the result from JSON files
+ */
+export type ParseResult<T> =
+  | { parsed: T; hasError: false; error?: undefined }
+  | { parsed?: undefined; hasError: true; error?: unknown }
+
+/**
+ * Interface for the MuteRoleId
+ * @interface MuteRoleId
+ * @param {string} muted_id
+ * @param {string} vc_muted_id
+ */
+export type MuteRoleId = {
+  muted_id: string,
+  vc_muted_id: string
+}
+
+/**
+ * Interface for the MuteableWord
+ * @interface MuteableWord
+ * @param {string[]} muteableWords
+ */
+export type MuteableWord = {
+  muteableWords: string[]
+}
+
+/**
+ * Interface for the BannableWord
+ * @interface BannableWord
+ * @param {string[]} bannableWords
+ */
+export type BannableWord = {
+  bannableWords: string[]
+}
+
+/**
+ * Interface for Config
+ * @interface Config
+ * @param {string} db_host
+ * @param {number} db_port
+ * @param {string} db_user
+ * @param {string} db_pass
+ * @param {string} token
+ * @param {string} prefix
+ * @param {string} guild_id
+ * @param {string} automod_ch_id
+ * @param {string} punishment_ch_id
+ * @param {MuteRoleId} mute_role_ids
+ * @param {string[]} discord_mod_role_ids
+ * @param {string[]} tier_member_role_ids
+ */
+export type Config = {
+    db_host: string,
+    db_port: number,
+    db_user: string,
+    db_pass: string
+    token: string
+    prefix: string
+    guild_id: string
+    automod_ch_id: string
+    punishment_ch_id: string
+    mute_role_ids: MuteRoleId
+    discord_mod_role_ids: string[]
+    tier_member_role_ids: string[]
+}
+
+/**
+ * Const value for all the members in interface Config, used to validate the
+ * parse from JSON file
+ */
+export const configGuard = [
+  'db_host',
+  'db_port',
+  'db_user',
+  'db_pass',
+  'token',
+  'prefix',
+  'guild_id',
+  'automod_ch_id',
+  'punishment_ch_id',
+  'mute_role_ids',
+  'discord_mod_role_ids',
+  'tier_member_role_ids',
+];

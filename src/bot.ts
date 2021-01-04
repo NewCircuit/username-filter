@@ -1,14 +1,14 @@
 import { CommandoClient } from 'discord.js-commando';
 import path from 'path';
 import * as events from './bot/events';
-import config from './config/config.json';
 import * as utils from './bot/utils';
+import * as globals from './bot/globals';
 
 /**
  * Create a new commando client with provided attributes
  */
 const bot = new CommandoClient({
-  commandPrefix: config.prefix,
+  commandPrefix: globals.CONFIG.prefix,
 });
 
 /**
@@ -30,11 +30,11 @@ bot.once('ready', async () => {
 
   setInterval(() => {
     events.checkMuted(bot);
-  }, 1000);
+  }, globals.CHECK_INTERVAL);
 
   setInterval(() => {
     events.checkBanned(bot);
-  }, 1000);
+  }, globals.CHECK_INTERVAL);
 });
 
 /**
@@ -49,14 +49,14 @@ bot.on('guildMemberAdd', async (member) => {
     if (!tempBan) {
       events.muteInappropriateUsername(member);
     }
-  }, 100);
+  }, globals.EVENT_OFFSET);
 });
 
 /**
  * When a user changes their username, check if it is inappropriate
  */
 bot.on('userUpdate', async (oldUser, newUser) => {
-  const guild = bot.guilds.cache.get(config.guild_id);
+  const guild = bot.guilds.cache.get(globals.CONFIG.guild_id);
 
   if (guild !== undefined) {
     const member = await utils.getMember(newUser.id, guild);
@@ -70,4 +70,4 @@ bot.on('userUpdate', async (oldUser, newUser) => {
 /**
  * login the bot for given token
  */
-bot.login(config.token).catch(console.error);
+bot.login(globals.CONFIG.token).catch(console.error);

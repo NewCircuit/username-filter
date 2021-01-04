@@ -1,14 +1,13 @@
 import { Message } from 'discord.js';
 import { Command, CommandoClient, CommandoMessage } from 'discord.js-commando';
 import * as utils from '../../bot/utils';
-import * as config from '../../config/config.json';
 import { ListArgs } from '../../models/types';
 import {
   getBannableWords,
   getMuteableWords,
   insertInapproppriateWord,
 } from '../../db/db';
-
+import * as globals from '../../bot/globals';
 export default class ListAddCommand extends Command {
   constructor(bot: CommandoClient) {
     super(bot, {
@@ -39,9 +38,9 @@ export default class ListAddCommand extends Command {
     : Promise<Message | Message[] | null> {
     let returnPromise = null;
 
-    // check if we got a message from DM
+    // check if we got a message from a bot and exit if so
     if (!msg.author.bot) {
-      const guild = this.client.guilds.cache.get(config.guild_id);
+      const guild = this.client.guilds.cache.get(globals.CONFIG.guild_id);
 
       if (guild !== undefined) {
         const member = await utils.getMember(msg.author.id, guild);

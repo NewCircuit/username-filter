@@ -10,7 +10,7 @@ import {
 } from '../db/db';
 import { BannedUser, MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
-import * as config from '../config/config.json';
+import * as globals from '../bot/globals';
 
 /**
  * Function that periodically (every second) checks if there are banned users
@@ -22,30 +22,32 @@ import * as config from '../config/config.json';
 export async function checkBanned(client: CommandoClient): Promise<void> {
   const bannedUsers = await getBannedMembers();
 
-  if (bannedUsers !== undefined) {
-    bannedUsers.forEach(async (row: BannedUser) => {
-      const now = Math.round(Date.now() / utils.MILIS);
-      if ((row.time !== undefined) && (now >= row.time) && row.isActive) {
-        const guild = await client.guilds.fetch(row.guildId);
-        // guild does not exist (should not happen)
-        if (!guild) {
-          return;
-        }
-        // member does not exist in guild
-        const member = await guild.members.fetch(row.uid);
-        if (!member) {
-          return;
-        }
-
-        // unban the user
-        const user = guild.members.unban(member.user);
-
-        if (user) {
-          await utils.unbanMemberAndSendEmbed(member, null, row.reason);
-        }
-      }
-    });
+  if (bannedUsers === undefined) {
+    // if there are no users return
+    return;
   }
+  bannedUsers.forEach(async (row: BannedUser) => {
+    const now = Math.round(Date.now() / globals.MILIS);
+    if ((row.time !== undefined) && (now >= row.time) && row.isActive) {
+      const guild = await client.guilds.fetch(row.guildId);
+      // guild does not exist (should not happen)
+      if (!guild) {
+        return;
+      }
+      // member does not exist in guild
+      const member = await guild.members.fetch(row.uid);
+      if (!member) {
+        return;
+      }
+
+      // unban the user
+      const user = guild.members.unban(member.user);
+
+      if (user) {
+        await utils.unbanMemberAndSendEmbed(member, null, row.reason);
+      }
+    }
+  });
 }
 
 /**
@@ -59,47 +61,49 @@ export async function checkBanned(client: CommandoClient): Promise<void> {
 export async function checkMuted(client: CommandoClient): Promise<void> {
   const mutedUsers = await getMutedMembers();
 
-  if (mutedUsers !== undefined) {
-    mutedUsers.forEach(async (row: MutedUser) => {
-      const guild = await client.guilds.fetch(row.guildId);
-      // guild does not exist (should not happen)
-      if (!guild) {
-        return;
-      }
+  if (mutedUsers === undefined) {
+    // if there are no users return
+    return;
+  }
+  mutedUsers.forEach(async (row: MutedUser) => {
+    const guild = await client.guilds.fetch(row.guildId);
+    // guild does not exist (should not happen)
+    if (!guild) {
+      return;
+    }
 
-      // check if member exists in guild and perform unmute if username
-      // changed to appropriate
-      if ((row.isActive === true) && (row.reason !== undefined)) {
-        try {
-          const member = await guild.members.fetch(row.uid);
+    // check if member exists in guild and perform unmute if username
+    // changed to appropriate
+    if ((row.isActive === true) && (row.reason !== undefined)) {
+      try {
+        const member = await guild.members.fetch(row.uid);
 
-          // get the old username from the reason message (offset is 24)
-          const oldUserName = row.reason.substring(24, row.reason.length);
+        // get the old username from the reason message (offset is 24)
+        const oldUserName = row.reason.substring(24, row.reason.length);
 
-          // check if username was changed
-          if (member.user.username.localeCompare(oldUserName)) {
-            utils.checkIfStillMuteable(member, row);
-          } else if ((row.kickTimer === true)) {
-            // check if 2 hours has passed and user has to be kicked
-            utils.checkIfMemberNeedsKick(member, row);
-          }
-        } catch (e) {
-          if (e.message === 'Unknown Member') {
-            console.error(`User not found because ${e}`);
-            // user was not found because the user has left
-            // the server set is_active field to false to
-            // not poll this log anymore
-            updateMutedUserToInactive({
-              uid: row.uid,
-              guildId: row.guildId,
-              isActive: false,
-              kickTimer: row.kickTimer,
-            });
-          }
+        // check if username was changed
+        if (member.user.username.localeCompare(oldUserName)) {
+          utils.checkIfStillMuteable(member, row);
+        } else if ((row.kickTimer === true)) {
+          // check if 2 hours has passed and user has to be kicked
+          utils.checkIfMemberNeedsKick(member, row);
+        }
+      } catch (e) {
+        if (e.message === 'Unknown Member') {
+          console.error(`User not found because ${e}`);
+          // user was not found because the user has left
+          // the server set is_active field to false to
+          // not poll this log anymore
+          updateMutedUserToInactive({
+            uid: row.uid,
+            guildId: row.guildId,
+            isActive: false,
+            kickTimer: row.kickTimer,
+          });
         }
       }
-    });
-  }
+    }
+  });
 }
 
 /**
@@ -119,7 +123,7 @@ export async function muteInappropriateUsername(member: GuildMember):
     if (utils.checkIfUserFloorGang(member)) {
       const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
       const automodChannel = member.guild.channels.cache
-        .get(config.automod_ch_id) as TextChannel;
+        .get(globals.CONFIG.automod_ch_id) as TextChannel;
 
       if (automodChannel !== undefined) {
         const channelEmbed = await automodChannel.send(tierMemberEmbed);
@@ -127,7 +131,7 @@ export async function muteInappropriateUsername(member: GuildMember):
 
         const collector = channelEmbed.createReactionCollector(
           embeds.filterTierEmbedReaction(),
-          { time: utils.DAY * utils.MILIS },
+          { time: globals.DAY * globals.MILIS },
         );
 
         collector.on('collect', async (reaction: MessageReaction,

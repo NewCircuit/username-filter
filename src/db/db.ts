@@ -5,7 +5,7 @@ import {
   BannedUserDb,
   MutedUser,
   MutedUserDb,
-  InappropriateWords,
+  InappropriateWord,
 } from '../models/types';
 import { poolDb } from './tables';
 
@@ -50,11 +50,11 @@ export function parseUserBanned(data: BannedUserDb): BannedUser {
 
 /**
  * Parse the data from database into the BannedUserDb type
- * @param {InappropriateWords} data
- * @returns {InappropriateWords}
+ * @param {InappropriateWord} data
+ * @returns {InappropriateWord}
  */
-export function parseInappropriateWords(data: InappropriateWords):
-  InappropriateWords {
+export function parseInappropriateWord(data: InappropriateWord):
+  InappropriateWord {
   return {
     word: data.word,
     bannable: data.bannable,
@@ -72,7 +72,7 @@ export function parseInappropriateWords(data: InappropriateWords):
  * @returns {Promise<number>}
  */
 export async function getNextMuteDbRowID(): Promise<number> {
-  const rows = await poolDb.query('SELECT * FROM users_muted.users');
+  const rows = await poolDb.query('SELECT * FROM username_check.muted_users');
 
   return rows.rowCount;
 }
@@ -84,7 +84,8 @@ export async function getNextMuteDbRowID(): Promise<number> {
  */
 export async function getMutedMembers():
   Promise<Array<MutedUser> | undefined> {
-  const members = await poolDb.query('SELECT * FROM users_muted.users');
+  const members = await poolDb
+    .query('SELECT * FROM username_check.muted_users');
   const membersParsed = new Array<MutedUser>(0);
 
   if (members !== undefined) {
@@ -105,7 +106,7 @@ export async function getMutedMembers():
  */
 export async function getActiveMutedMember(member: GuildMember):
   Promise<MutedUser | undefined> {
-  const members = await poolDb.query('SELECT * FROM users_muted.users '
+  const members = await poolDb.query('SELECT * FROM username_check.muted_users '
     + 'WHERE uid = $1 AND is_active = true', [member.id]);
 
   if ((members !== undefined) && (members.rows.length > 0)) {
@@ -122,7 +123,7 @@ export async function getActiveMutedMember(member: GuildMember):
  */
 export async function getMemberKickTimer(member: GuildMember):
   Promise<MutedUser | undefined> {
-  const members = await poolDb.query('SELECT * FROM users_muted.users '
+  const members = await poolDb.query('SELECT * FROM username_check.muted_users '
     + 'WHERE uid = $1 AND kick_timer = true', [member.id]);
 
   if ((members !== undefined) && (members.rows.length > 0)) {
@@ -138,7 +139,8 @@ export async function getMemberKickTimer(member: GuildMember):
  */
 export async function getBannedMembers():
   Promise<Array<BannedUser> | undefined> {
-  const members = await poolDb.query('SELECT * FROM users_banned.users');
+  const members = await poolDb
+    .query('SELECT * FROM username_check.banned_users');
   const membersParsed = new Array<BannedUser>(0);
 
   if (members !== undefined) {
@@ -155,16 +157,17 @@ export async function getBannedMembers():
  * Get all the inappropriate words (bannable and non bannable) from
  * the database and parse them to the defined type. If no words are found,
  * return undefined
- * @returns {Promise<Array<InappropriateWords> | undefined>}
+ * @returns {Promise<Array<InappropriateWord> | undefined>}
  */
-export async function getAllInappropriateWords():
-  Promise<Array<InappropriateWords> | undefined> {
-  const words = await poolDb.query('SELECT * FROM inappropriate_words.words');
-  const wordsParsed = new Array<InappropriateWords>(0);
+export async function getAllInappropriateWord():
+  Promise<Array<InappropriateWord> | undefined> {
+  const words = await poolDb
+    .query('SELECT * FROM username_check.inappropriate_words');
+  const wordsParsed = new Array<InappropriateWord>(0);
 
   if (words !== undefined) {
-    words.rows.forEach((row: InappropriateWords) => {
-      wordsParsed.push(parseInappropriateWords(row));
+    words.rows.forEach((row: InappropriateWord) => {
+      wordsParsed.push(parseInappropriateWord(row));
     });
 
     return wordsParsed;
@@ -175,18 +178,18 @@ export async function getAllInappropriateWords():
 /**
  * Get all the inappropriate words from the database and parse them to the
  * defined type. If no words are found, return undefined
- * @returns {Promise<Array<InappropriateWords> | undefined>}
+ * @returns {Promise<Array<InappropriateWord> | undefined>}
  */
 export async function getMuteableWords():
-  Promise<Array<InappropriateWords> | undefined> {
+  Promise<Array<InappropriateWord> | undefined> {
   const words = await poolDb.query(
-    'SELECT * FROM inappropriate_words.words WHERE bannable = false',
+    'SELECT * FROM username_check.inappropriate_words WHERE bannable = false',
   );
-  const wordsParsed = new Array<InappropriateWords>(0);
+  const wordsParsed = new Array<InappropriateWord>(0);
 
   if (words !== undefined) {
-    words.rows.forEach((row: InappropriateWords) => {
-      wordsParsed.push(parseInappropriateWords(row));
+    words.rows.forEach((row: InappropriateWord) => {
+      wordsParsed.push(parseInappropriateWord(row));
     });
 
     return wordsParsed;
@@ -197,18 +200,18 @@ export async function getMuteableWords():
 /**
  * Get all the inappropriate bannable words from the database and parse them to
  * the defined type. If no words are found, return undefined
- * @returns {Promise<Array<InappropriateWords> | undefined>}
+ * @returns {Promise<Array<InappropriateWord> | undefined>}
  */
 export async function getBannableWords():
-  Promise<Array<InappropriateWords> | undefined> {
+  Promise<Array<InappropriateWord> | undefined> {
   const words = await poolDb.query(
-    'SELECT * FROM inappropriate_words.words WHERE bannable = true',
+    'SELECT * FROM username_check.inappropriate_words WHERE bannable = true',
   );
-  const wordsParsed = new Array<InappropriateWords>(0);
+  const wordsParsed = new Array<InappropriateWord>(0);
 
   if (words !== undefined) {
-    words.rows.forEach((row: InappropriateWords) => {
-      wordsParsed.push(parseInappropriateWords(row));
+    words.rows.forEach((row: InappropriateWord) => {
+      wordsParsed.push(parseInappropriateWord(row));
     });
 
     return wordsParsed;
@@ -230,7 +233,7 @@ export async function getBannableWords():
 export async function insertInapproppriateWord(word: string,
   bannable: boolean): Promise<void> {
   poolDb.query(
-    'INSERT INTO inappropriate_words.words('
+    'INSERT INTO username_check.inappropriate_words('
       + 'word,'
       + 'bannable)'
       + 'VALUES ($1, $2)',
@@ -246,7 +249,7 @@ export async function insertInapproppriateWord(word: string,
 export async function insertUserIntoMutedDb(user: MutedUser):
   Promise<QueryResult<MutedUserDb>> {
   return poolDb.query(
-    'INSERT INTO users_muted.users ('
+    'INSERT INTO username_check.muted_users ('
               + 'uid,'
               + 'guild_id,'
               + 'reason,'
@@ -273,7 +276,7 @@ export async function insertUserIntoMutedDb(user: MutedUser):
  */
 export async function insertUserIntoBannedDb(user: BannedUser):
   Promise<QueryResult<BannedUserDb>> {
-  return poolDb.query('INSERT INTO users_banned.users ('
+  return poolDb.query('INSERT INTO username_check.banned_users ('
     + 'uid,'
     + 'guild_id,'
     + 'reason,'
@@ -302,7 +305,7 @@ export async function insertUserIntoBannedDb(user: BannedUser):
 export async function updateMutedUserToInactive(user: MutedUser):
   Promise<QueryResult<MutedUserDb>> {
   return poolDb.query(
-    'UPDATE users_muted.users SET '
+    'UPDATE username_check.muted_users SET '
       + 'is_active = $3,'
       + 'kick_timer = $4,'
       + 'modified_at = now() '
@@ -323,7 +326,7 @@ export async function updateMutedUserToInactive(user: MutedUser):
 export async function updateKickTimerUser(user: MutedUser):
   Promise<QueryResult<MutedUserDb>> {
   return poolDb.query(
-    'UPDATE users_muted.users SET '
+    'UPDATE username_check.muted_users SET '
       + 'kick_timer = $3,'
       + 'modified_at = now() '
       + 'WHERE '
@@ -342,7 +345,7 @@ export async function updateKickTimerUser(user: MutedUser):
 export async function updateMutedUserBanCounter(user: MutedUser):
 Promise<QueryResult<MutedUserDb>> {
   return poolDb.query(
-    'UPDATE users_muted.users SET '
+    'UPDATE username_check.muted_users SET '
             + 'ban_count = $1,'
             + 'modified_at = now() '
             + 'WHERE '
@@ -363,7 +366,7 @@ Promise<QueryResult<MutedUserDb>> {
 export async function updateBannedUserInactive(user: BannedUser):
   Promise<void> {
   poolDb.query(
-    'UPDATE users_banned.users SET '
+    'UPDATE username_check.banned_users SET '
                 + 'is_active = false,'
                 + 'modified_at = now() '
                 + 'WHERE '
@@ -386,6 +389,6 @@ export async function updateBannedUserInactive(user: BannedUser):
  */
 export async function deleteInapproppriateWord(word: string): Promise<void> {
   poolDb.query(
-    'DELETE FROM inappropriate_words.words WHERE word = $1', [word],
+    'DELETE FROM username_check.inappropriate_words WHERE word = $1', [word],
   );
 }

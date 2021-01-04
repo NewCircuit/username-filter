@@ -1,11 +1,15 @@
 /* eslint-disable arrow-body-style */
 import {
-  MessageEmbed, GuildMember, MessageReaction, Message, CollectorFilter, User, TextChannel, MessageCollector,
+  MessageEmbed,
+  GuildMember,
+  MessageReaction,
+  Message,
+  CollectorFilter,
+  User,
 } from 'discord.js';
-import { CommandoMessage } from 'discord.js-commando';
-import { promises } from 'fs';
 import * as utils from '../bot/utils';
-import { InappropriateWords } from './types';
+import * as globals from '../bot/globals';
+import { InappropriateWord } from './types';
 
 /**
  * Reactions used for deciding the fate of tier member with inappropriate
@@ -254,17 +258,17 @@ export function createEmbedForTierMemberAction(member: GuildMember)
 /**
  * Creates an embed for the list command.
  * @param {number} start
- * @param {InappropriateWords[]} array
+ * @param {InappropriateWord[]} array
  * @returns {MessageEmbed}
  */
 export function createListEmbed(start: number,
-  array: InappropriateWords[]): MessageEmbed {
+  array: InappropriateWord[]): MessageEmbed {
   const current = array.slice(start,
-    start + utils.MAX_EMBED_FIELDS);
+    start + globals.MAX_EMBED_FIELDS);
   const maxPages = (Math.ceil(array.length
-      / utils.MAX_EMBED_FIELDS));
-  const page = (start + utils.MAX_EMBED_FIELDS)
-      / utils.MAX_EMBED_FIELDS;
+      / globals.MAX_EMBED_FIELDS));
+  const page = (start + globals.MAX_EMBED_FIELDS)
+      / globals.MAX_EMBED_FIELDS;
 
   // create the embed for showing the words
   const embed = new MessageEmbed()
@@ -345,7 +349,7 @@ async function listEmbedHandlePages(pageMsg: Message, userMsg: Message,
     // inappropriate words
     await pageMsg.delete();
     await userMsg.delete();
-    return utils.MAX_EMBED_FIELDS * page;
+    return globals.MAX_EMBED_FIELDS * page;
   }
   // Delete the message after 1 second
   const deleteMsg = await pageMsg.channel
@@ -387,15 +391,15 @@ export async function performActionOnTierEmbedReaction(member: GuildMember,
           break;
         case '1⃣':
           utils.banMemberAndSendEmbed(member, reactMember,
-            utils.DAYS_IN_WEEK, reason);
+            globals.DAYS_IN_WEEK, reason);
           break;
         case '2⃣':
           utils.banMemberAndSendEmbed(member, reactMember,
-            utils.DAYS_HALF_A_MONTH, reason);
+            globals.DAYS_HALF_A_MONTH, reason);
           break;
         case '3⃣':
           utils.banMemberAndSendEmbed(member, reactMember,
-            utils.DAYS_IN_MONTH, reason);
+            globals.DAYS_IN_MONTH, reason);
           break;
         case '🔨':
           utils.banMemberAndSendEmbed(member, reactMember, null,
@@ -414,19 +418,19 @@ export async function performActionOnTierEmbedReaction(member: GuildMember,
 
 /**
  * Perform an action on the list embed based on the reaction: show next page,
- * show previous page or choose a page.
+ * show previous page or choose a numbered page.
  * @param {Message} messageSent
- * @param {InappropriateWords[]} array
+ * @param {InappropriateWord[]} array
  * @param {string} authorId
  */
 export async function performActionOnListEmbedReaction(messageSent: Message,
-  array: InappropriateWords[], authorId: string):
+  array: InappropriateWord[], authorId: string):
   Promise<void> {
   // create the reaction collector for muteable list
   const collector = messageSent.createReactionCollector(
     filterListEmbedReaction(authorId),
     // time out after a minute
-    { time: utils.MINUTE * utils.MILIS },
+    { time: globals.MINUTE * globals.MILIS },
   );
   let listEmbedCurrentIndex = 0;
 
@@ -435,7 +439,7 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
     await reaction.users.remove(user);
     if (reaction.emoji.name === '🔢') {
       const maxPages = (Math.ceil(array.length
-        / utils.MAX_EMBED_FIELDS));
+        / globals.MAX_EMBED_FIELDS));
       const pageMsg = await messageSent.channel.send(
         `Please input the page (1-${maxPages}) `
         + 'on which you want to go to:',
@@ -446,7 +450,7 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
             // only collect messages from the author
             (m) => m.author.id === authorId,
             // time out after 15 seconds
-            { time: 15 * utils.MILIS },
+            { time: 15 * globals.MILIS },
           );
         messageCollector.on('collect',
           async (userMsg: Message) => {
@@ -470,12 +474,12 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
       if ((reaction.emoji.name === '⬅️')
             && (listEmbedCurrentIndex !== 0)) {
         // show previous page
-        listEmbedCurrentIndex -= utils.MAX_EMBED_FIELDS;
+        listEmbedCurrentIndex -= globals.MAX_EMBED_FIELDS;
       } else if (reaction.emoji.name === '➡️'
             && (listEmbedCurrentIndex <= (array.length
-              - utils.MAX_EMBED_FIELDS))) {
+              - globals.MAX_EMBED_FIELDS))) {
         // show next page
-        listEmbedCurrentIndex += utils.MAX_EMBED_FIELDS;
+        listEmbedCurrentIndex += globals.MAX_EMBED_FIELDS;
       }
 
       // edit message with new embed

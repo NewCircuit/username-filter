@@ -17,38 +17,7 @@ import {
 } from '../db/db';
 import { MutedUser, UsernameCheck } from '../models/types';
 import * as embeds from '../models/embeds';
-import * as config from '../config/config.json';
-
-/**
- * Define some constants used in the app
- */
-export const MINUTE = 60;
-export const HOUR = 60 * MINUTE;
-export const DAY = 24 * HOUR;
-
-export const DAYS_IN_MONTH = 30;
-export const DAYS_HALF_A_MONTH = 15;
-export const DAYS_IN_WEEK = 7;
-
-/**
- * Mute "forever"
- */
-export const MUTE_INDEFINITE = 0x7FFFFFFFFFFFFFFFn;
-
-/**
- * Ban "forever"
- */
-export const BAN_INDEFINITE = 0x7FFFFFFFFFFFFFFFn;
-
-/**
- * Constant value for miliseconds
- */
-export const MILIS = 1000;
-
-/**
- * Constant value for max embeds fields shown:
- */
-export const MAX_EMBED_FIELDS = 25;
+import * as globals from './globals';
 
 /**
  * Parse uid given on command based on if the user was tagged, or only id was
@@ -122,10 +91,10 @@ export async function checkIfMemberMuted(member: GuildMember):
  */
 export function checkIfUserFloorGang(member: GuildMember): boolean {
   const tierRoles = member.guild.roles.cache
-    .filter((role) => config.tier_member_role_ids.includes(role.id));
+    .filter((role) => globals.CONFIG.tier_member_role_ids.includes(role.id));
 
   const memberRoles = member.roles.cache
-    .filter((role) => config.tier_member_role_ids.includes(role.id));
+    .filter((role) => globals.CONFIG.tier_member_role_ids.includes(role.id));
 
   if ((tierRoles.size > 0)
         && (memberRoles.size > 0)) {
@@ -147,10 +116,10 @@ export function checkIfUserDiscordMod(member: GuildMember | null):
   }
 
   const tierRoles = member.guild.roles.cache
-    .filter((role) => config.discord_mod_role_ids.includes(role.id));
+    .filter((role) => globals.CONFIG.discord_mod_role_ids.includes(role.id));
 
   const memberRoles = member.roles.cache
-    .filter((role) => config.discord_mod_role_ids.includes(role.id));
+    .filter((role) => globals.CONFIG.discord_mod_role_ids.includes(role.id));
 
   if ((tierRoles.size > 0)
         && (memberRoles.size > 0)) {
@@ -208,7 +177,7 @@ export async function mutedMemberUpdate(member: GuildMember,
   member.send(userDMMsg).catch(console.error);
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const updateMuteEmbed = embeds.createEmbedForUpdateMute(member, reactMember,
@@ -228,7 +197,7 @@ export async function checkIfMemberNeedsKick(member: GuildMember,
   if (dbData.createdAt !== undefined) {
     const createdAt = new Date(dbData.createdAt).getTime();
 
-    if ((now - createdAt) >= (2 * HOUR * MILIS)) {
+    if ((now - createdAt) >= (2 * globals.HOUR * globals.MILIS)) {
       await updateMutedUserToInactive(
         {
           uid: dbData.uid,
@@ -261,9 +230,9 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
   Promise<void> {
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
-    .find((role) => role.id === config.mute_role_ids.muted_id);
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
   const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === config.mute_role_ids.vc_muted_id);
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
   // if there are no muted roles return. Should not happen.
   if (!mutedRole || !vcMutedRole) {
@@ -306,7 +275,7 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
   member.setNickname(`Automute [User${nextId}]`);
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const muteEmbed = embeds.createEmbedForMute(member, reactMember, reason);
@@ -326,9 +295,9 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
   Promise<void> {
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
-    .find((role) => role.id === config.mute_role_ids.muted_id);
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
   const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === config.mute_role_ids.vc_muted_id);
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
   if (!mutedRole || !vcMutedRole) {
     // should not happen
@@ -358,7 +327,7 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
   member.setNickname(`${member.user.username}`);
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const unmuteEmbed = embeds.createEmbedForUnmute(member, reactMember);
@@ -379,7 +348,7 @@ export async function kickMemberAndSendEmbed(member: GuildMember,
   await member.send('You will be kicked for having an inappropriate username!');
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const kickEmbed = embeds.createEmbedForKick(member, reactMember, reason);
@@ -412,9 +381,10 @@ export async function banMemberAndSendEmbed(member: GuildMember,
 
   if (duration !== null) {
     // calculate number of milliseconds needed for the ban to end
-    time = BigInt(Math.round(Date.now() / MILIS) + duration * DAY);
+    time = BigInt(Math.round(Date.now() / globals.MILIS)
+      + duration * globals.DAY);
   } else {
-    time = BAN_INDEFINITE;
+    time = globals.BAN_INDEFINITE;
   }
 
   // insert the user into the db tracking banned users
@@ -428,7 +398,7 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   ).catch(console.error);
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const banEmbed = embeds.createEmbedForBan(member, reactMember,
@@ -460,7 +430,7 @@ export async function unbanMemberAndSendEmbed(member: GuildMember,
   );
 
   const punishChannel = member.guild.channels.cache
-    .get(config.punishment_ch_id) as TextChannel;
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const unBanEmbed = embeds.createEmbedForUnban(member,
@@ -489,7 +459,7 @@ export async function checkTempBan(member: GuildMember):
         // increment the ban counter indicating how long the user will be
         // banned
         tempBanUser.banCount += 1;
-        const banDuration = (tempBanUser.banCount) * DAYS_IN_MONTH;
+        const banDuration = (tempBanUser.banCount) * globals.DAYS_IN_MONTH;
 
         // update the data in the db for muted users
         await updateMutedUserBanCounter(

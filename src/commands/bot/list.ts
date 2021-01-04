@@ -1,15 +1,14 @@
 import { Message } from 'discord.js';
 import { Command, CommandoClient, CommandoMessage } from 'discord.js-commando';
 import * as utils from '../../bot/utils';
-import * as config from '../../config/config.json';
-import { InappropriateWords, ListArgs } from '../../models/types';
+import { InappropriateWord, ListArgs } from '../../models/types';
 import { getBannableWords, getMuteableWords } from '../../db/db';
 import {
   createListEmbed,
-  filterListEmbedReaction,
   performActionOnListEmbedReaction,
   reactToListEmbed,
 } from '../../models/embeds';
+import * as globals from '../../bot/globals';
 
 export default class ListCommand extends Command {
   constructor(bot: CommandoClient) {
@@ -38,7 +37,7 @@ export default class ListCommand extends Command {
     let returnPromise = null;
     // check if we got a message from DM
     if (!msg.author.bot) {
-      const guild = this.client.guilds.cache.get(config.guild_id);
+      const guild = this.client.guilds.cache.get(globals.CONFIG.guild_id);
 
       if (guild !== undefined) {
         const member = await utils.getMember(msg.author.id, guild);
@@ -84,7 +83,7 @@ export default class ListCommand extends Command {
     return returnPromise;
   }
 
-  static async sendListResponse(wordList: InappropriateWords[],
+  static async sendListResponse(wordList: InappropriateWord[],
     msg: CommandoMessage): Promise<void> {
     let listResponse = '\n**List of inappropriate bannable '
                + 'words**:\n';
