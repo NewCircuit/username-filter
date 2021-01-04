@@ -240,15 +240,14 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
   }
 
   // check if user is already muted
-  if (member.roles.cache.has(mutedRole.id.toString())
-      && member.roles.cache.has(vcMutedRole.id.toString())
+  if (member.roles.cache.has(mutedRole.id)
+      && member.roles.cache.has(vcMutedRole.id)
       && (await checkIfMemberMuted(member))) {
     return;
   }
 
   // add mute role to the user
-  await member.roles.add([mutedRole.id.toString(),
-    vcMutedRole.id.toString()]);
+  await member.roles.add([mutedRole.id, vcMutedRole.id]);
   // insert user id and guild id into a database.
   await insertUserIntoMutedDb({
     uid: member.id,
@@ -310,8 +309,7 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
-  await member.roles.remove([mutedRole.id.toString(),
-    vcMutedRole.id.toString()]);
+  await member.roles.remove([mutedRole.id, vcMutedRole.id]);
 
   await updateMutedUserToInactive({
     uid: (dbData === null ? member.id : dbData.uid),
@@ -372,7 +370,7 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   // create a ban response
   let banResponse = 'You will be';
   banResponse += (duration === null) ? ' permanently '
-    : ` temporarily (${duration.toString()} days) `;
+    : ` temporarily (${duration} days) `;
   banResponse += 'banned for having an inappropriate username.';
   // inform the user about the ban
   await member.send(banResponse);
