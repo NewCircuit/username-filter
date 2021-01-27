@@ -58,7 +58,7 @@ bot.on('guildMemberAdd', async (member) => {
 bot.on('userUpdate', async (oldUser, newUser) => {
   const guild = bot.guilds.cache.get(globals.CONFIG.guild_id);
 
-  if (guild !== undefined) {
+  if ((guild !== undefined) && (oldUser.username !== null)) {
     const member = await utils.getMember(newUser.id, guild);
     if ((member !== null) && oldUser.username.toLowerCase()
       .localeCompare(newUser.username.toLowerCase())) {
