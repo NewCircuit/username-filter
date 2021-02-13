@@ -26,7 +26,8 @@ bot.registry
  * to check if there are any muted or banned users.
  */
 bot.once('ready', async () => {
-  console.log(`${bot?.user?.username} is online!`);
+  utils.getLoggerModule('ready event')
+    .info(`${bot?.user?.username} is online!`);
 
   setInterval(() => {
     events.checkMuted(bot);
@@ -44,9 +45,11 @@ bot.once('ready', async () => {
 bot.on('guildMemberAdd', async (member) => {
   // Add a delay to give other bots chance to first assign a roles to new
   // members. Might be increased to bigger value!
+  utils.getLoggerModule('member join').info(`User ${member.user.tag}`
+    + ` (ID:${member.id}) joined the server`);
   setTimeout(async () => {
-    const tempBan = await utils.checkTempBan(member);
-    if (!tempBan) {
+    const userBan = await utils.checkPermaBan(member);
+    if (!userBan) {
       events.muteInappropriateUsername(member);
     }
   }, globals.EVENT_OFFSET);
@@ -59,6 +62,8 @@ bot.on('userUpdate', async (oldUser, newUser) => {
   const guild = bot.guilds.cache.get(globals.CONFIG.guild_id);
 
   if ((guild !== undefined) && (oldUser.username !== null)) {
+    utils.getLoggerModule('user update').info(`User ${newUser.tag}`
+      + ` (ID:${newUser.id}) has updated the username!`);
     const member = await utils.getMember(newUser.id, guild);
     if ((member !== null) && oldUser.username.toLowerCase()
       .localeCompare(newUser.username.toLowerCase())) {
@@ -70,4 +75,6 @@ bot.on('userUpdate', async (oldUser, newUser) => {
 /**
  * login the bot for given token
  */
-bot.login(globals.CONFIG.token).catch(console.error);
+bot.login(globals.CONFIG.token).catch((err) => {
+  utils.getLoggerModule('login').error(err);
+});

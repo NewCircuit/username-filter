@@ -1,7 +1,8 @@
 /* eslint-disable arrow-body-style */
 import {
-  Guild, GuildMember, TextChannel,
+  Guild, GuildMember, Role, TextChannel,
 } from 'discord.js';
+import { Logger, getLogger } from 'log4js';
 import {
   getMemberKickTimer,
   getActiveMutedMember,
@@ -9,7 +10,6 @@ import {
   insertUserIntoMutedDb,
   insertUserIntoBannedDb,
   updateMutedUserToInactive,
-  updateMutedUserBanCounter,
   updateBannedUserInactive,
   getBannableWords,
   getMuteableWords,
@@ -18,6 +18,17 @@ import {
 import { MutedUser, UsernameCheck } from '../models/types';
 import * as embeds from '../models/embeds';
 import * as globals from './globals';
+
+/**
+ * Get a logger instance for a certain module.
+ * @param {string} module
+ * @returns {Logger}
+ */
+export function getLoggerModule(module: string): Logger {
+  const logger = getLogger(module);
+  logger.level = globals.CONFIG.log_level;
+  return logger;
+}
 
 /**
  * Parse uid given on command based on if the user was tagged, or only id was
@@ -39,7 +50,7 @@ export async function getMember(uid: string, guild: Guild):
     const member = await guild.members.fetch(uidParsed);
     return member;
   } catch (e) {
-    console.error(`User not found because ${e}`);
+    getLoggerModule('get member').error(`User not found because ${e}`);
     return null;
   }
 }
@@ -68,22 +79,50 @@ export async function checkUsername(username: string):
     }
     return { shouldMute: false, kickTimer: false };
   }
-  console.error("Couldn't fetch one (or both) of the lists!");
+  getLoggerModule('check name')
+    .error("Couldn't fetch one (or both) of the lists!");
   return undefined;
 }
 
 /**
- * Check if the member is muted already in the db
+ * Check if the given role position is lower than the members highest role!
+ * @param {GuildMember} member
+ * @param {Role} role
+ * @returns {boolean}
+ */
+export function checkRolePositionMember(member: GuildMember, role: Role):
+  boolean {
+  return ((role.position < member.roles.highest.position));
+}
+
+/**
+ * Check if the member can be muted or not
  * @param {GuildMember} member
  * @returns {Promise<boolean>}
  */
-export async function checkIfMemberMuted(member: GuildMember):
-  Promise<boolean> {
-  if ((await getActiveMutedMember(member)) !== undefined) {
-    return true;
+export async function checkIfCanMute(member: GuildMember):
+  Promise<boolean | undefined> {
+  // try getting the mute and vc mute role
+  const mutedRole = member.guild.roles.cache
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
+  const vcMutedRole = member.guild.roles.cache
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
+
+  // if there are no muted roles return. Should not happen.
+  if (!mutedRole || !vcMutedRole) {
+    return undefined;
   }
 
-  return false;
+  // check if user is already muted or has higher role
+  if ((member.roles.cache.has(mutedRole.id)
+      && member.roles.cache.has(vcMutedRole.id)
+      && ((await getActiveMutedMember(member)) !== undefined))
+      || (checkRolePositionMember(member, mutedRole)
+      && checkRolePositionMember(member, vcMutedRole))) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -164,7 +203,6 @@ export async function mutedMemberUpdate(member: GuildMember,
     guildId: member.guild.id,
     reason: newReason,
     kickTimer: kickTimerDb,
-    banCount: 0,
   });
 
   let userDMMsg = 'Your changed username is still inappropriate. '
@@ -176,7 +214,8 @@ export async function mutedMemberUpdate(member: GuildMember,
       + 'change it.';
   }
 
-  member.send(userDMMsg).catch(console.error);
+  member.send(userDMMsg).catch((err) => getLoggerModule('update muted')
+    .error(err));
 
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
@@ -184,8 +223,36 @@ export async function mutedMemberUpdate(member: GuildMember,
   if (punishChannel !== undefined) {
     const updateMuteEmbed = embeds.createEmbedForUpdateMute(member, reactMember,
       oldReason, newReason);
-    punishChannel.send(updateMuteEmbed);
+    punishChannel.send(updateMuteEmbed)
+      .catch((err) => getLoggerModule('update muted').error(err));
   }
+}
+
+/**
+ * Kick the member out of the server.
+ * @param {GuildMember} member
+ * @param {GuildMember | null} reactMember
+ * @param {string} reason
+ * @returns {Promise<void>}
+ */
+export async function kickMemberAndSendEmbed(member: GuildMember,
+  reactMember: GuildMember | null, reason: string):
+  Promise<void> {
+  await member.send('You have been kicked from the '
+                          + `server for: ${reason}. `
+                          + 'Please change your username before '
+                          + 'joining again!')
+    .catch((err) => getLoggerModule('kick member').error(err));
+
+  const punishChannel = member.guild.channels.cache
+    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
+
+  if (punishChannel !== undefined) {
+    const kickEmbed = embeds.createEmbedForKick(member, reactMember, reason);
+    punishChannel.send(kickEmbed);
+  }
+
+  await member.kick();
 }
 
 /**
@@ -199,7 +266,7 @@ export async function checkIfMemberNeedsKick(member: GuildMember,
   if (dbData.createdAt !== undefined) {
     const createdAt = new Date(dbData.createdAt).getTime();
 
-    if ((now - createdAt) >= (2 * globals.HOUR * globals.MILIS)) {
+    if ((now - createdAt) >= (30 * globals.MINUTE * globals.MILLIS)) {
       await updateMutedUserToInactive(
         {
           uid: dbData.uid,
@@ -209,12 +276,14 @@ export async function checkIfMemberNeedsKick(member: GuildMember,
         },
       );
 
-      await member.send('You have been kicked from the '
-                        + `server for: ${dbData.reason}. `
-                        + 'Please change your username before '
-                        + 'joining again!').catch(console.error);
-
-      member.kick(dbData.reason);
+      if (dbData.reason !== undefined) {
+        getLoggerModule('check kick')
+          .info(`Member ${member.user.tag} will be kicked!`);
+        kickMemberAndSendEmbed(member, null, dbData.reason);
+      } else {
+        getLoggerModule('check kick').error('Reason not provided in the db.'
+          + 'Someting unexpected happened!');
+      }
     }
   }
 }
@@ -238,26 +307,20 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
 
   // if there are no muted roles return. Should not happen.
   if (!mutedRole || !vcMutedRole) {
-    return;
-  }
-
-  // check if user is already muted
-  if (member.roles.cache.has(mutedRole.id)
-      && member.roles.cache.has(vcMutedRole.id)
-      && (await checkIfMemberMuted(member))) {
+    getLoggerModule('mute member').error('No muted roles found!');
     return;
   }
 
   // add mute role to the user
-  await member.roles.add([mutedRole.id, vcMutedRole.id]);
+  await member.roles.add([mutedRole.id, vcMutedRole.id])
+    .catch((err) => getLoggerModule('mute member').error(err));
   // insert user id and guild id into a database.
   await insertUserIntoMutedDb({
     uid: member.id,
     guildId: member.guild.id,
     reason,
     kickTimer,
-    banCount: 0,
-  });
+  }).catch((err) => getLoggerModule('mute member').error(err));
 
   const nextId = await getNextMuteDbRowID();
 
@@ -267,20 +330,25 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
 
   if (kickTimer) {
     userDMMsg += ' Since your username contains really offensive words, '
-        + "you will be kicked within two hours if you don't "
+        + "you will be kicked within 30 minutes if you don't "
         + 'change it.';
   }
 
-  member.send(userDMMsg).catch(console.error);
+  await member.send(userDMMsg).catch((err) => {
+    getLoggerModule('mute member').error(err);
+  });
 
-  member.setNickname(`Automute [User${nextId}]`);
+  await member.setNickname(`Automute [User${nextId}]`)
+    .catch((err) => getLoggerModule('mute member').error(err));
 
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const muteEmbed = embeds.createEmbedForMute(member, reactMember, reason);
-    punishChannel.send(muteEmbed);
+    punishChannel.send(muteEmbed).catch((err) => {
+      getLoggerModule('mute member').error(err);
+    });
   }
 }
 
@@ -301,17 +369,21 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
     .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
   if (!mutedRole || !vcMutedRole) {
+    getLoggerModule('unmute member').error('Muted roles not available!');
     // should not happen
     return;
   }
 
   if (!member.roles.cache.has(mutedRole.id)
     && !member.roles.cache.has(vcMutedRole.id)) {
+    getLoggerModule('unmute member')
+      .error(`Member ${member.user.tag} already unmuted!`);
     // member already unmuted
     return;
   }
 
-  await member.roles.remove([mutedRole.id, vcMutedRole.id]);
+  await member.roles.remove([mutedRole.id, vcMutedRole.id])
+    .catch((err) => getLoggerModule('unmute member').error(err));
 
   await updateMutedUserToInactive({
     uid: (dbData === null ? member.id : dbData.uid),
@@ -322,40 +394,19 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
 
   member.send('You have been unmuted. Your new '
         + 'username is your nickname for now.')
-    .catch(console.error);
+    .catch((err) => getLoggerModule('unmute member').error(err));
 
-  member.setNickname(`${member.user.username}`);
+  member.setNickname(`${member.user.username}`)
+    .catch((err) => getLoggerModule('unmute member').error(err));
 
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
   if (punishChannel !== undefined) {
     const unmuteEmbed = embeds.createEmbedForUnmute(member, reactMember);
-    await punishChannel.send(unmuteEmbed);
+    await punishChannel.send(unmuteEmbed)
+      .catch((err) => getLoggerModule('unmute member').error(err));
   }
-}
-
-/**
- * Kick the member out of the server.
- * @param {GuildMember} member
- * @param {GuildMember | null} reactMember
- * @param {string} reason
- * @returns {Promise<void>}
- */
-export async function kickMemberAndSendEmbed(member: GuildMember,
-  reactMember: GuildMember, reason: string):
-  Promise<void> {
-  await member.send('You will be kicked for having an inappropriate username!');
-
-  const punishChannel = member.guild.channels.cache
-    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
-
-  if (punishChannel !== undefined) {
-    const kickEmbed = embeds.createEmbedForKick(member, reactMember, reason);
-    punishChannel.send(kickEmbed);
-  }
-
-  await member.kick();
 }
 
 /**
@@ -375,13 +426,15 @@ export async function banMemberAndSendEmbed(member: GuildMember,
     : ` temporarily (${duration} days) `;
   banResponse += 'banned for having an inappropriate username.';
   // inform the user about the ban
-  await member.send(banResponse);
+  await member.send(banResponse).catch((err) => {
+    getLoggerModule('ban member').error(err);
+  });
 
   let time: bigint = 0n;
 
   if (duration !== null) {
     // calculate number of milliseconds needed for the ban to end
-    time = BigInt(Math.round(Date.now() / globals.MILIS)
+    time = BigInt(Math.round(Date.now() / globals.MILLIS)
       + duration * globals.DAY);
   } else {
     time = globals.BAN_INDEFINITE;
@@ -395,7 +448,7 @@ export async function banMemberAndSendEmbed(member: GuildMember,
       guildId: member.guild.id,
       time,
     },
-  ).catch(console.error);
+  );
 
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
@@ -403,11 +456,14 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   if (punishChannel !== undefined) {
     const banEmbed = embeds.createEmbedForBan(member, reactMember,
       banReason, duration);
-    punishChannel.send(banEmbed);
+    punishChannel.send(banEmbed).catch((err) => {
+      getLoggerModule('ban member').error(err);
+    });
   }
 
   // ban the user
-  await member.ban({ reason: banReason });
+  await member.ban({ reason: banReason })
+    .catch((err) => getLoggerModule('ban member').error(err));
 }
 
 /**
@@ -420,6 +476,8 @@ export async function banMemberAndSendEmbed(member: GuildMember,
 export async function unbanMemberAndSendEmbed(member: GuildMember,
   reactMember: GuildMember | null, banReason: string):
   Promise<void> {
+  getLoggerModule('unban member')
+    .info(`Member ${member.user.tag} will be unbanned!`);
   // set user as inactive (because unban happened)
   await updateBannedUserInactive(
     {
@@ -435,57 +493,44 @@ export async function unbanMemberAndSendEmbed(member: GuildMember,
   if (punishChannel !== undefined) {
     const unBanEmbed = embeds.createEmbedForUnban(member,
       reactMember, banReason);
-    punishChannel.send(unBanEmbed);
+    punishChannel.send(unBanEmbed).catch((err) => {
+      getLoggerModule('unban member').error(err);
+    });
   }
 }
 
 /**
  * Try fetching the new user and see if the user has the kick timer still
  * active. This means the user was kicked before for having a bad username.
- * If the user rejoined with the same bad username again, tempban them.
+ * If the user rejoined with the same bad username again, permaban them.
  * @param {GuildMember} member
  * @returns {Promise<boolean>}
  */
-export async function checkTempBan(member: GuildMember):
+export async function checkPermaBan(member: GuildMember):
   Promise<boolean> {
-  const tempBanUser = await getMemberKickTimer(member);
+  const banUser = await getMemberKickTimer(member);
 
-  if (tempBanUser && (tempBanUser.reason !== undefined)) {
+  if (banUser && (banUser.reason !== undefined)
+    && !checkIfUserFloorGang(member)) {
     // get the old username from the reason message (offset is 24)
-    const oldUserName = tempBanUser.reason.substring(24,
-      tempBanUser.reason.length);
-    if (tempBanUser.banCount !== undefined) {
-      if (!oldUserName.localeCompare(member.user.username)) {
-        // increment the ban counter indicating how long the user will be
-        // banned
-        tempBanUser.banCount += 1;
-        const banDuration = (tempBanUser.banCount) * globals.DAYS_IN_MONTH;
-
-        // update the data in the db for muted users
-        await updateMutedUserBanCounter(
-          {
-            uid: member.user.id,
-            guildId: member.guild.id,
-            banCount: tempBanUser.banCount,
-          },
-        ).catch(console.error);
-
-        // ban the member and send embed to the channel
-        banMemberAndSendEmbed(member, null, banDuration,
-          tempBanUser.reason);
-
-        return true;
-      }
-      // user joined the server back but not with the same bad username
-      // set kick timer to false
-      await updateKickTimerUser(
-        {
-          uid: member.user.id,
-          guildId: member.guild.id,
-          kickTimer: false,
-        },
-      );
+    const oldUserName = banUser.reason.substring(24,
+      banUser.reason.length);
+    if (!oldUserName.localeCompare(member.user.username)) {
+      getLoggerModule('check perma')
+        .info(`Member ${member.user.tag} will be banned!`);
+      // ban the member and send embed to the channel
+      banMemberAndSendEmbed(member, null, null, banUser.reason);
+      return true;
     }
+    // user joined the server back but not with the same bad username
+    // set kick timer to false
+    await updateKickTimerUser(
+      {
+        uid: member.user.id,
+        guildId: member.guild.id,
+        kickTimer: false,
+      },
+    );
   }
 
   return false;
@@ -502,8 +547,12 @@ export async function checkIfStillMuteable(member: GuildMember,
   const userNameCheck = await checkUsername(member.user.username);
   if ((userNameCheck) !== undefined && (dbData.reason !== undefined)) {
     if (!userNameCheck.shouldMute) {
+      getLoggerModule('check muteable')
+        .info(`Unmuting member ${member.user.tag}!`);
       await unmuteMemberAndSendEmbed(member, dbData, null);
     } else {
+      getLoggerModule('check muteable').info(`Member ${member.user.tag}`
+        + 'still has an inappropriate username!');
       await mutedMemberUpdate(member, userNameCheck.kickTimer,
         null, dbData.reason);
     }

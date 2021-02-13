@@ -63,7 +63,7 @@ export default class ListAddCommand extends Command {
               }
               break;
             case 'bannable':
-              if ((msg.guild === null)) {
+              {
                 // fetch the bannable words from database
                 const bannableWords = await getBannableWords();
 
@@ -76,10 +76,8 @@ export default class ListAddCommand extends Command {
                     returnPromise = msg.say('Wrong word provided!');
                   }
                 }
-              } else {
-                returnPromise = msg.say('Deleting words from bannable list '
-                  + 'is only possible from DMs!');
               }
+
               break;
             default:
               returnPromise = msg.say('Wrong list name provided!');

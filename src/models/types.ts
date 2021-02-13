@@ -7,7 +7,7 @@
  */
 export type ListArgs = {
   listType: string,
-  listWord: string
+  listWord: string,
 }
 
 /**
@@ -37,9 +37,8 @@ export type MutedUser = {
   reason?: string,
   isActive?: boolean,
   kickTimer?: boolean,
-  banCount?: number,
   createdAt?: Date,
-  modifiedAt?: Date
+  modifiedAt?: Date,
 }
 
 /**
@@ -59,9 +58,8 @@ export type MutedUserDb = {
   reason: string,
   is_active: boolean,
   kick_timer: boolean,
-  ban_count: number,
   created_at: Date,
-  modified_at: Date
+  modified_at: Date,
 }
 
 /**
@@ -111,7 +109,7 @@ export type BannedUserDb = {
  */
 export type InappropriateWord = {
   word: string,
-  bannable: boolean
+  bannable: boolean,
 }
 
 /**
@@ -129,7 +127,7 @@ export type ParseResult<T> =
  */
 export type MuteRoleId = {
   muted_id: string,
-  vc_muted_id: string
+  vc_muted_id: string,
 }
 
 /**
@@ -138,7 +136,7 @@ export type MuteRoleId = {
  * @param {string[]} muteableWords
  */
 export type MuteableWord = {
-  muteableWords: string[]
+  muteableWords: string[],
 }
 
 /**
@@ -147,7 +145,7 @@ export type MuteableWord = {
  * @param {string[]} bannableWords
  */
 export type BannableWord = {
-  bannableWords: string[]
+  bannableWords: string[],
 }
 
 /**
@@ -157,6 +155,8 @@ export type BannableWord = {
  * @param {number} db_port
  * @param {string} db_user
  * @param {string} db_pass
+ * @param {string} db_type
+ * @param {string} log_level
  * @param {string} token
  * @param {string} prefix
  * @param {string} guild_id
@@ -170,15 +170,17 @@ export type Config = {
     db_host: string,
     db_port: number,
     db_user: string,
-    db_pass: string
-    token: string
-    prefix: string
-    guild_id: string
-    automod_ch_id: string
-    punishment_ch_id: string
-    mute_role_ids: MuteRoleId
-    discord_mod_role_ids: string[]
-    tier_member_role_ids: string[]
+    db_pass: string,
+    db_type: string,
+    log_level: string,
+    token: string,
+    prefix: string,
+    guild_id: string,
+    automod_ch_id: string,
+    punishment_ch_id: string,
+    mute_role_ids: MuteRoleId,
+    discord_mod_role_ids: string[],
+    tier_member_role_ids: string[],
 }
 
 /**
@@ -190,6 +192,8 @@ export const configGuard = [
   'db_port',
   'db_user',
   'db_pass',
+  'db_type',
+  'log_level',
   'token',
   'prefix',
   'guild_id',

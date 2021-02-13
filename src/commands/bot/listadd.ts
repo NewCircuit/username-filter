@@ -8,6 +8,7 @@ import {
   insertInapproppriateWord,
 } from '../../db/db';
 import * as globals from '../../bot/globals';
+
 export default class ListAddCommand extends Command {
   constructor(bot: CommandoClient) {
     super(bot, {
@@ -69,18 +70,13 @@ export default class ListAddCommand extends Command {
                 const bannableWords = await getBannableWords();
 
                 if (bannableWords !== undefined) {
-                  if ((msg.guild === null)) {
-                    if (!(bannableWords.some(({ word }) => listWord === word))) {
-                      insertInapproppriateWord(listWord, true);
-                      returnPromise = msg.say(`Added ${listWord} `
-                        + 'to the bannable list!');
-                    } else {
-                      returnPromise = msg.say('Word already exists in '
-                      + 'the bannable list!');
-                    }
+                  if (!(bannableWords.some(({ word }) => listWord === word))) {
+                    insertInapproppriateWord(listWord, true);
+                    returnPromise = msg.say(`Added ${listWord} `
+                      + 'to the bannable list!');
                   } else {
-                    returnPromise = msg.say('Adding words to bannable list '
-                      + 'is only possible from DMs!');
+                    returnPromise = msg.say('Word already exists in '
+                    + 'the bannable list!');
                   }
                 }
               }

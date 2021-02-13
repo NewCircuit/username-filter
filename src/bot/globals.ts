@@ -22,9 +22,9 @@ export const MUTE_INDEFINITE = 0x7FFFFFFFFFFFFFFFn;
 export const BAN_INDEFINITE = 0x7FFFFFFFFFFFFFFFn;
 
 /**
- * Constant value for miliseconds
+ * Constant value for milliseconds
  */
-export const MILIS = 1000;
+export const MILLIS = 1000;
 
 /**
  * Constant value for max embeds fields shown
@@ -39,7 +39,7 @@ export const CHECK_INTERVAL = 1000;
 /**
  * Constant value for timeout used in guildMemberAdd event (in milliseconds)
  */
-export const EVENT_OFFSET = 100;
+export const EVENT_OFFSET = 60000;
 
 /**
  * Constant value for the config file

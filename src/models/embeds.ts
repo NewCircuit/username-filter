@@ -383,35 +383,53 @@ export async function performActionOnTierEmbedReaction(member: GuildMember,
     if (utils.checkIfUserDiscordMod(reactMember)) {
       switch (reaction.emoji.name) {
         case '🔇':
+          utils.getLoggerModule('embed react')
+            .info(`Mute member ${member.user.tag}!`);
           utils.muteMemberAndSendEmbed(member, false, reactMember,
             reason);
           break;
         case '👢':
+          utils.getLoggerModule('embed react')
+            .info(`Kick member ${member.user.tag}!`);
           utils.kickMemberAndSendEmbed(member, reactMember, reason);
           break;
         case '1⃣':
+          utils.getLoggerModule('embed react')
+            .info(`Ban member ${member.user.tag} for one week!`);
           utils.banMemberAndSendEmbed(member, reactMember,
             globals.DAYS_IN_WEEK, reason);
           break;
         case '2⃣':
+          utils.getLoggerModule('embed react')
+            .info(`Ban member ${member.user.tag} for two weeks!`);
           utils.banMemberAndSendEmbed(member, reactMember,
             globals.DAYS_HALF_A_MONTH, reason);
           break;
         case '3⃣':
+          utils.getLoggerModule('embed react')
+            .info(`Ban member ${member.user.tag} for a month!`);
           utils.banMemberAndSendEmbed(member, reactMember,
             globals.DAYS_IN_MONTH, reason);
           break;
         case '🔨':
+          utils.getLoggerModule('embed react')
+            .info(`Ban member ${member.user.tag} permanently!`);
           utils.banMemberAndSendEmbed(member, reactMember, null,
             reason);
           break;
         case '❌':
+          utils.getLoggerModule('embed react')
+            .info('Abort action, delete the embed.');
           break;
         default:
-          console.error('Something weird happened!');
+          utils.getLoggerModule('embed react').error('Something unexpected '
+            + 'happened while processing reaction!');
       }
       return true;
     }
+
+    utils.getLoggerModule('embed react').error(`Member ${reactMember.user.tag} `
+        + 'not high enough in hierarchy to perform action!');
   }
   return false;
 }
@@ -430,7 +448,7 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
   const collector = messageSent.createReactionCollector(
     filterListEmbedReaction(authorId),
     // time out after a minute
-    { time: globals.MINUTE * globals.MILIS },
+    { time: globals.MINUTE * globals.MILLIS },
   );
   let listEmbedCurrentIndex = 0;
 
@@ -450,7 +468,7 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
             // only collect messages from the author
             (m) => m.author.id === authorId,
             // time out after 15 seconds
-            { time: 15 * globals.MILIS },
+            { time: 15 * globals.MILLIS },
           );
         messageCollector.on('collect',
           async (userMsg: Message) => {

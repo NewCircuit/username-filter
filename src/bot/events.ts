@@ -27,7 +27,7 @@ export async function checkBanned(client: CommandoClient): Promise<void> {
     return;
   }
   bannedUsers.forEach(async (row: BannedUser) => {
-    const now = Math.round(Date.now() / globals.MILIS);
+    const now = Math.round(Date.now() / globals.MILLIS);
     if ((row.time !== undefined) && (now >= row.time) && row.isActive) {
       const guild = await client.guilds.fetch(row.guildId);
       // guild does not exist (should not happen)
@@ -90,7 +90,8 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
         }
       } catch (e) {
         if (e.message === 'Unknown Member') {
-          console.error(`User not found because ${e}`);
+          utils.getLoggerModule('check muted')
+            .error(`User not found because ${e}`);
           // user was not found because the user has left
           // the server set is_active field to false to
           // not poll this log anymore
@@ -116,15 +117,32 @@ export async function muteInappropriateUsername(member: GuildMember):
   Promise<void> {
   const userNameCheck = await utils.checkUsername(member.user.username);
   if ((userNameCheck === undefined) || !userNameCheck.shouldMute) {
+    utils.getLoggerModule('mute user')
+      .error("Username couldn't be checked or is appropriate!");
     // if we couldn't check username, or the username is appropriate, return
+    return;
+  }
+
+  const checkMemberMute = await utils.checkIfCanMute(member);
+
+  if (checkMemberMute === undefined) {
+    utils.getLoggerModule('mute user').error("Couldn't fetch muted roles!");
+    return;
+  }
+
+  if (checkMemberMute === false) {
+    utils.getLoggerModule('mute user')
+      .error(`Cannot mute member ${member.id}.`);
     return;
   }
 
   const reason = `Inappropriate username: ${member.user.username}`;
 
-  // If user is a YT member, ask Moderators for next steps using reaction
-  // embeds.
+  // If user is a YT member and not a mod, ask moderators for next steps
+  // using reaction embeds.
   if (utils.checkIfUserFloorGang(member)) {
+    utils.getLoggerModule('mute user')
+      .info('User is a YouTube member. Wait for embed reaction!');
     const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
     const automodChannel = member.guild.channels.cache
       .get(globals.CONFIG.automod_ch_id) as TextChannel;
@@ -135,7 +153,7 @@ export async function muteInappropriateUsername(member: GuildMember):
 
       const collector = channelEmbed.createReactionCollector(
         embeds.filterTierEmbedReaction(),
-        { time: globals.DAY * globals.MILIS },
+        { time: globals.DAY * globals.MILLIS },
       );
 
       collector.on('collect', async (reaction: MessageReaction,
@@ -153,6 +171,8 @@ export async function muteInappropriateUsername(member: GuildMember):
       });
     }
   } else {
+    utils.getLoggerModule('mute user')
+      .info(`Muting member ${member.user.tag}`);
     utils.muteMemberAndSendEmbed(member, userNameCheck.kickTimer, null,
       reason);
   }

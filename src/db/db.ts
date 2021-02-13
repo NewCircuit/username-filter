@@ -8,6 +8,8 @@ import {
   InappropriateWord,
 } from '../models/types';
 import { poolDb } from './tables';
+import * as globals from '../bot/globals';
+import * as utils from '../bot/utils';
 
 /* *********************************************************
  * *********** Parsing database data into types ************
@@ -25,7 +27,6 @@ export function parseUserMuted(data: MutedUserDb): MutedUser {
     reason: data.reason,
     isActive: data.is_active,
     kickTimer: data.kick_timer,
-    banCount: data.ban_count,
     createdAt: data.created_at,
     modifiedAt: data.modified_at,
   };
@@ -238,7 +239,7 @@ export async function insertInapproppriateWord(word: string,
       + 'bannable)'
       + 'VALUES ($1, $2)',
     [word, bannable],
-  );
+  ).catch((err) => utils.getLoggerModule('insert word db').error(err));
 }
 
 /**
@@ -255,16 +256,14 @@ export async function insertUserIntoMutedDb(user: MutedUser):
               + 'reason,'
               + 'is_active,'
               + 'kick_timer,'
-              + 'ban_count,'
               + 'created_at,'
               + 'modified_at)'
-              + 'VALUES ($1, $2, $3, true, $4, $5, now(), now())',
+              + 'VALUES ($1, $2, $3, true, $4, now(), now())',
     [
       user.uid,
       user.guildId,
       user.reason,
       user.kickTimer,
-      user.banCount,
     ],
   );
 }
@@ -338,27 +337,6 @@ export async function updateKickTimerUser(user: MutedUser):
 }
 
 /**
- * Updates the ban count of a certain user
- * @param {MutedUser} user
- * @returns {Promise<QueryResult<MutedUserDb>>}
- */
-export async function updateMutedUserBanCounter(user: MutedUser):
-Promise<QueryResult<MutedUserDb>> {
-  return poolDb.query(
-    'UPDATE username_check.muted_users SET '
-            + 'ban_count = $1,'
-            + 'modified_at = now() '
-            + 'WHERE '
-            + 'uid = $2 '
-            + 'AND guild_id = $3'
-            + 'AND kick_timer = true',
-    [user.banCount,
-      user.uid,
-      user.guildId],
-  );
-}
-
-/**
  * Sets the banned user to non active (when unbanned)
  * @param {BannedUser} user
  * @returns {Promise<void>}
@@ -375,7 +353,7 @@ export async function updateBannedUserInactive(user: BannedUser):
                 + 'AND reason = $3'
                 + 'AND is_active = true',
     [user.uid, user.guildId, user.reason],
-  );
+  ).catch((err) => utils.getLoggerModule('update banned db').error(err));
 }
 
 /* *********************************************************
@@ -390,5 +368,5 @@ export async function updateBannedUserInactive(user: BannedUser):
 export async function deleteInapproppriateWord(word: string): Promise<void> {
   poolDb.query(
     'DELETE FROM username_check.inappropriate_words WHERE word = $1', [word],
-  );
+  ).catch((err) => utils.getLoggerModule('delete word db').error(err));
 }
