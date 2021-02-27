@@ -39,7 +39,7 @@ export const CHECK_INTERVAL = 1000;
 /**
  * Constant value for timeout used in guildMemberAdd event (in milliseconds)
  */
-export const EVENT_OFFSET = 60000;
+export const EVENT_OFFSET = 100;
 
 /**
  * Constant value for the config file

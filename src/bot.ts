@@ -62,11 +62,11 @@ bot.on('userUpdate', async (oldUser, newUser) => {
   const guild = bot.guilds.cache.get(globals.CONFIG.guild_id);
 
   if ((guild !== undefined) && (oldUser.username !== null)) {
-    utils.getLoggerModule('user update').info(`User ${newUser.tag}`
-      + ` (ID:${newUser.id}) has updated the username!`);
     const member = await utils.getMember(newUser.id, guild);
     if ((member !== null) && oldUser.username.toLowerCase()
       .localeCompare(newUser.username.toLowerCase())) {
+      utils.getLoggerModule('user update').info(`User ${newUser.tag}`
+        + ` (ID:${newUser.id}) has updated the username!`);
       events.muteInappropriateUsername(member);
     }
   }
