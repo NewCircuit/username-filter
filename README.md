@@ -39,7 +39,7 @@ Populate the config.json file in the config directory (**fields after the :**):
     "db_port": 8000,
     "db_user": "db_user",
     "db_pass": "db_pass",
-    "db_type": "postgres",
+    "db_name": "postgres",
     "log_level": "debug",
     "token"  : "bot_token",
     "prefix" : "-",

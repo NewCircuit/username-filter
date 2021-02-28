@@ -13,7 +13,7 @@ export const poolDb = new Pool({
   port: globals.CONFIG.db_port,
   user: globals.CONFIG.db_user,
   password: globals.CONFIG.db_pass,
-  database: globals.CONFIG.db_type,
+  database: globals.CONFIG.db_name,
   max: 20,
 });
 

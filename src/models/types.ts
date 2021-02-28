@@ -155,7 +155,7 @@ export type BannableWord = {
  * @param {number} db_port
  * @param {string} db_user
  * @param {string} db_pass
- * @param {string} db_type
+ * @param {string} db_name
  * @param {string} log_level
  * @param {string} token
  * @param {string} prefix
@@ -171,7 +171,7 @@ export type Config = {
     db_port: number,
     db_user: string,
     db_pass: string,
-    db_type: string,
+    db_name: string,
     log_level: string,
     token: string,
     prefix: string,
@@ -192,7 +192,7 @@ export const configGuard = [
   'db_port',
   'db_user',
   'db_pass',
-  'db_type',
+  'db_name',
   'log_level',
   'token',
   'prefix',
