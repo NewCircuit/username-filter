@@ -1,5 +1,5 @@
 {
-  "name": "username_auto_mute",
+  "name": "username-filter",
   "version": "1.0.0",
   "description": "Auto mute the joining users if their username is inappropriate.",
   "main": "bot.js",
@@ -7,8 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "slycor",
-  "license": "ISC",
+  "author": "NewCircuit <https://github.com/newcircuit>",
+  "license": "gpl-3.0",
   "dependencies": {
     "discord.js": "^12.5.1",
     "discord.js-commando": "github:discordjs/Commando",
@@ -31,10 +31,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Floor-Gang/username_auto_mute.git"
+    "url": "git+https://github.com/NewCircuit/username-filter.git"
   },
   "bugs": {
-    "url": "https://github.com/Floor-Gang/username_auto_mute/issues"
+    "url": "https://github.com/NewCircuit/username-filter/issues"
   },
-  "homepage": "https://github.com/Floor-Gang/username_auto_mute#readme"
+  "homepage": "https://github.com/NewCircuit/username-filter#readme"
 }

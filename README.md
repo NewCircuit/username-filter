@@ -28,7 +28,7 @@ npm i --global typescript @types/node
 Clone the repo with:
 
 ```
-git clone https://github.com/Floor-Gang/username_auto_mute.git
+git clone https://github.com/NewCircuit/username-filter.git
 ```
 
 Populate the config.json file in the config directory (**fields after the :**):

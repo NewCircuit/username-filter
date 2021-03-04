@@ -140,7 +140,7 @@ export async function muteInappropriateUsername(member: GuildMember):
 
   // If user is a YT member and not a mod, ask moderators for next steps
   // using reaction embeds.
-  if (utils.checkIfUserFloorGang(member)) {
+  if (utils.checkIfWhitelisted(member)) {
     utils.getLoggerModule('mute user')
       .info('User is a YouTube member. Wait for embed reaction!');
     const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);

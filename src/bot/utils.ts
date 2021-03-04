@@ -126,11 +126,11 @@ export async function checkIfCanMute(member: GuildMember):
 }
 
 /**
- * check if user has any of the Floor Gang roles
+ * check if user has any of the whitelisted roles
  * @param {GuildMember} member
  * @returns {boolean}
  */
-export function checkIfUserFloorGang(member: GuildMember): boolean {
+export function checkIfWhitelisted(member: GuildMember): boolean {
   const tierRoles = member.guild.roles.cache
     .filter((role) => globals.CONFIG.tier_member_role_ids.includes(role.id));
 
@@ -511,7 +511,7 @@ export async function checkPermaBan(member: GuildMember):
   const banUser = await getMemberKickTimer(member);
 
   if (banUser && (banUser.reason !== undefined)
-    && !checkIfUserFloorGang(member)) {
+    && !checkIfWhitelisted(member)) {
     // get the old username from the reason message (offset is 24)
     const oldUserName = banUser.reason.substring(24,
       banUser.reason.length);
