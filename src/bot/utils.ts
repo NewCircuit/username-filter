@@ -1,6 +1,6 @@
 /* eslint-disable arrow-body-style */
 import {
-  Guild, GuildMember, Role, TextChannel,
+  Guild, GuildMember, Role, TextChannel, User,
 } from 'discord.js';
 import { Logger, getLogger } from 'log4js';
 import {
@@ -374,23 +374,15 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
-  if (!member.roles.cache.has(mutedRole.id)
-    && !member.roles.cache.has(vcMutedRole.id)) {
-    getLoggerModule('unmute member')
-      .error(`Member ${member.user.tag} already unmuted!`);
-    // member already unmuted
-    return;
-  }
-
-  await member.roles.remove([mutedRole.id, vcMutedRole.id])
-    .catch((err) => getLoggerModule('unmute member').error(err));
-
   await updateMutedUserToInactive({
     uid: (dbData === null ? member.id : dbData.uid),
     guildId: (dbData === null ? member.guild.id : dbData.guildId),
     isActive: false,
     kickTimer: false,
   });
+
+  await member.roles.remove([mutedRole.id, vcMutedRole.id])
+    .catch((err) => getLoggerModule('unmute member').error(err));
 
   member.send('You have been unmuted. Your new '
         + 'username is your nickname for now.')
@@ -468,34 +460,42 @@ export async function banMemberAndSendEmbed(member: GuildMember,
 
 /**
  * Update the banned user to inactive since the user was unbanned
- * @param {GuildMember} member
+ * @param {User} bannedUser
+ * @param {Guild} guild
+ * @param {bigint} time
  * @param {GuildMember | null} reactMember
  * @param {string} banReason
  * @returns {Promise<void>}
  */
-export async function unbanMemberAndSendEmbed(member: GuildMember,
-  reactMember: GuildMember | null, banReason: string):
+export async function unbanMemberAndSendEmbed(bannedUser: User, guild: Guild,
+  time: bigint, reactMember: GuildMember | null, banReason: string):
   Promise<void> {
-  getLoggerModule('unban member')
-    .info(`Member ${member.user.tag} will be unbanned!`);
-  // set user as inactive (because unban happened)
-  await updateBannedUserInactive(
-    {
-      uid: member.id,
-      reason: banReason,
-      guildId: member.guild.id,
-    },
-  );
+  const now = Math.round(Date.now() / globals.MILLIS);
+  if (now >= time) {
+    await guild.members.unban(bannedUser);
 
-  const punishChannel = member.guild.channels.cache
-    .get(globals.CONFIG.punishment_ch_id) as TextChannel;
+    const punishChannel = guild.channels.cache
+      .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
-  if (punishChannel !== undefined) {
-    const unBanEmbed = embeds.createEmbedForUnban(member,
-      reactMember, banReason);
-    punishChannel.send(unBanEmbed).catch((err) => {
-      getLoggerModule('unban member').error(err);
-    });
+    if (punishChannel !== undefined) {
+      const unBanEmbed = embeds.createEmbedForUnban(bannedUser,
+        reactMember, banReason);
+      punishChannel.send(unBanEmbed).catch((err) => {
+        getLoggerModule('unban member').error(err);
+      });
+    }
+
+    getLoggerModule('unban member')
+      .info(`Member ${bannedUser.tag} will be unbanned!`);
+
+    // set user as inactive (because user has been unbanned)
+    await updateBannedUserInactive(
+      {
+        uid: bannedUser.id,
+        reason: banReason,
+        guildId: guild.id,
+      },
+    );
   }
 }
 
@@ -513,7 +513,7 @@ export async function checkPermaBan(member: GuildMember):
   if (banUser && (banUser.reason !== undefined)
     && !checkIfWhitelisted(member)) {
     // get the old username from the reason message (offset is 24)
-    const oldUserName = banUser.reason.substring(24,
+    const oldUserName = banUser.reason.substring(globals.REASON_OFFSET,
       banUser.reason.length);
     if (!oldUserName.localeCompare(member.user.username)) {
       getLoggerModule('check perma')
@@ -557,4 +557,40 @@ export async function checkIfStillMuteable(member: GuildMember,
         null, dbData.reason);
     }
   }
+}
+
+/**
+ * Check if user already unmuted.
+ * @param {GuildMember} member
+ * @param {MutedUser} dbData
+ */
+export async function checkIfAlreadyUnmuted(member: GuildMember,
+  dbData: MutedUser): Promise<boolean> {
+  // try getting the mute and vc mute role
+  const mutedRole = member.guild.roles.cache
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
+  const vcMutedRole = member.guild.roles.cache
+    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
+
+  if (!mutedRole || !vcMutedRole) {
+    getLoggerModule('unmute member').error('Muted roles not available!');
+    // should not happen, return as if user already unmuted
+    return true;
+  }
+
+  if (!member.roles.cache.has(mutedRole.id)
+    || !member.roles.cache.has(vcMutedRole.id)) {
+    getLoggerModule('unmute member')
+      .error(`Member ${member.user.tag} already unmuted!`);
+    // member already unmuted, set to inactive
+    await updateMutedUserToInactive({
+      uid: (dbData === null ? member.id : dbData.uid),
+      guildId: (dbData === null ? member.guild.id : dbData.guildId),
+      isActive: false,
+      kickTimer: false,
+    });
+    return true;
+  }
+
+  return false;
 }

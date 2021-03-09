@@ -42,6 +42,11 @@ export const CHECK_INTERVAL = 1000;
 export const EVENT_OFFSET = 100;
 
 /**
+ * Reason offset for getting the username from db reason.
+ */
+export const REASON_OFFSET = 24;
+
+/**
  * Constant value for the config file
  */
 export const CONFIG = getConfig();

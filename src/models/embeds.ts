@@ -191,14 +191,14 @@ export function createEmbedForUpdateMute(member: GuildMember,
 
 /**
  * return an embed notifying unbanning a user
- * @param {GuildMember} member
+ * @param {User} user
  * @param {GuildMember | null} reactMember
  * @param {string} reason
  * @returns {MessageEmbed}
  */
-export function createEmbedForUnban(member: GuildMember,
-  reactMember: GuildMember | null, reason: string): MessageEmbed {
-  const memberAvatar = member.user.avatarURL();
+export function createEmbedForUnban(user: User, reactMember: GuildMember | null,
+  reason: string): MessageEmbed {
+  const memberAvatar = user.avatarURL();
 
   const banEmbed = new MessageEmbed()
     .setColor('#74B72E')
@@ -207,11 +207,11 @@ export function createEmbedForUnban(member: GuildMember,
       : 'unban**'}`)
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
     .addFields(
-      { name: 'Offender:', value: `${member.user.tag} <@${member.id}>` },
+      { name: 'Offender:', value: `${user.tag} <@${user.id}>` },
       { name: 'Reason:', value: `${reason}` },
     )
     .setTimestamp()
-    .setFooter(`ID: ${member.user.id}`);
+    .setFooter(`ID: ${user.id}`);
 
   if (reactMember !== null) {
     banEmbed.addField('Action performed by: ',
@@ -427,7 +427,6 @@ export async function performActionOnTierEmbedReaction(member: GuildMember,
       }
       return true;
     }
-
     utils.getLoggerModule('embed react').error(`Member ${reactMember.user.tag} `
         + 'not high enough in hierarchy to perform action!');
   }
@@ -447,8 +446,8 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
   // create the reaction collector for muteable list
   const collector = messageSent.createReactionCollector(
     filterListEmbedReaction(authorId),
-    // time out after a minute
-    { time: globals.MINUTE * globals.MILLIS },
+    // time out after defined value
+    { time: 5 * globals.MINUTE * globals.MILLIS },
   );
   let listEmbedCurrentIndex = 0;
 
