@@ -1,3 +1,4 @@
+/* eslint-disable arrow-body-style */
 import {
   TextChannel, GuildMember, MessageReaction, User,
 } from 'discord.js';
@@ -7,6 +8,7 @@ import {
   getMutedMembers,
   getBannedMembers,
   updateMutedUserToInactive,
+  updateBannedUserInactive,
 } from '../db/db';
 import { BannedUser, MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
@@ -27,24 +29,35 @@ export async function checkBanned(client: CommandoClient): Promise<void> {
     return;
   }
   bannedUsers.forEach(async (row: BannedUser) => {
-    const now = Math.round(Date.now() / globals.MILLIS);
-    if ((row.time !== undefined) && (now >= row.time) && row.isActive) {
-      const guild = await client.guilds.fetch(row.guildId);
+    if ((row.time !== undefined) && row.isActive) {
+      const guild = await client.guilds.fetch(row.guildId).catch((err) => {
+        utils.getLoggerModule('check banned').error(err);
+      });
       // guild does not exist (should not happen)
       if (!guild) {
         return;
       }
-      // member does not exist in guild
-      const member = await guild.members.fetch(row.uid);
-      if (!member) {
-        return;
-      }
 
-      // unban the user
-      const user = guild.members.unban(member.user);
+      const banList = await guild.fetchBans();
+      const bannedUser = banList.find((banData) => {
+        return (banData.user.id === row.uid);
+      });
 
-      if (user) {
-        await utils.unbanMemberAndSendEmbed(member, null, row.reason);
+      if (!bannedUser) {
+        // member already unbanned
+        utils.getLoggerModule('unban member')
+          .error(`Member with ID ${row.uid} already unbanned!`);
+        // set user as inactive (because already unbanned)
+        await updateBannedUserInactive(
+          {
+            uid: row.uid,
+            reason: row.reason,
+            guildId: guild.id,
+          },
+        );
+      } else {
+        await utils.unbanMemberAndSendEmbed(bannedUser.user,
+          guild, row.time, null, row.reason);
       }
     }
   });
@@ -66,7 +79,10 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
     return;
   }
   mutedUsers.forEach(async (row: MutedUser) => {
-    const guild = await client.guilds.fetch(row.guildId);
+    const guild = await client.guilds.fetch(row.guildId).catch((err) => {
+      utils.getLoggerModule('check muted').error(err);
+    });
+
     // guild does not exist (should not happen)
     if (!guild) {
       return;
@@ -81,11 +97,16 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
         // get the old username from the reason message (offset is 24)
         const oldUserName = row.reason.substring(24, row.reason.length);
 
+        // if user already unmuted skip the rest
+        if (await utils.checkIfAlreadyUnmuted(member, row)) {
+          return;
+        }
+
         // check if username was changed
         if (member.user.username.localeCompare(oldUserName)) {
           utils.checkIfStillMuteable(member, row);
         } else if ((row.kickTimer === true)) {
-          // check if 2 hours has passed and user has to be kicked
+          // check if enough time has passed and user has to be kicked
           utils.checkIfMemberNeedsKick(member, row);
         }
       } catch (e) {
@@ -158,11 +179,14 @@ export async function muteInappropriateUsername(member: GuildMember):
 
       collector.on('collect', async (reaction: MessageReaction,
         reactUser: User) => {
-        const actionDone = await embeds
-          .performActionOnTierEmbedReaction(member, reactUser, reaction,
-            reason);
-        if (actionDone) {
-          collector.stop();
+        if (!reactUser.bot) {
+          const actionDone = await embeds
+            .performActionOnTierEmbedReaction(member, reactUser, reaction,
+              reason);
+
+          if (actionDone) {
+            collector.stop();
+          }
         }
       });
 
