@@ -8,7 +8,6 @@ import {
   InappropriateWord,
 } from '../models/types';
 import { poolDb } from './tables';
-import * as globals from '../bot/globals';
 import * as utils from '../bot/utils';
 
 /* *********************************************************

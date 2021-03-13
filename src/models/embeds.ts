@@ -488,11 +488,11 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
         });
       }
     } else {
-      if ((reaction.emoji.name === '⬅︝')
+      if ((reaction.emoji.name === '⬅️')
             && (listEmbedCurrentIndex !== 0)) {
         // show previous page
         listEmbedCurrentIndex -= globals.MAX_EMBED_FIELDS;
-      } else if (reaction.emoji.name === '➡︝'
+      } else if (reaction.emoji.name === '➡️'
             && (listEmbedCurrentIndex <= (array.length
               - globals.MAX_EMBED_FIELDS))) {
         // show next page

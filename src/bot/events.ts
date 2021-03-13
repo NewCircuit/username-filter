@@ -9,6 +9,7 @@ import {
   getBannedMembers,
   updateMutedUserToInactive,
   updateBannedUserInactive,
+  updateKickTimerUser,
 } from '../db/db';
 import { BannedUser, MutedUser } from '../models/types';
 import * as embeds from '../models/embeds';
@@ -53,6 +54,14 @@ export async function checkBanned(client: CommandoClient): Promise<void> {
             uid: row.uid,
             reason: row.reason,
             guildId: guild.id,
+          },
+        );
+        // set kick timer to false since member was manually unbanned
+        await updateKickTimerUser(
+          {
+            uid: row.uid,
+            guildId: guild.id,
+            kickTimer: false,
           },
         );
       } else {
