@@ -17,7 +17,7 @@
     "discord_mod_role_ids": [
         "discord_mod_role_ids"
     ],
-    "tier_member_role_ids": [
-        "tier_member_role_ids"
+    "selected_member_role_ids": [
+        "selected_member_role_ids"
     ]
 }

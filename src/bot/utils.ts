@@ -126,18 +126,20 @@ export async function checkIfCanMute(member: GuildMember):
 }
 
 /**
- * check if user has any of the whitelisted roles
+ * check if user has any of the selected roles
  * @param {GuildMember} member
  * @returns {boolean}
  */
-export function checkIfWhitelisted(member: GuildMember): boolean {
-  const tierRoles = member.guild.roles.cache
-    .filter((role) => globals.CONFIG.tier_member_role_ids.includes(role.id));
+export function checkIfSelected(member: GuildMember): boolean {
+  const selectedRoles = member.guild.roles.cache.filter((role) => {
+    return globals.CONFIG.selected_member_role_ids.includes(role.id);
+  });
 
-  const memberRoles = member.roles.cache
-    .filter((role) => globals.CONFIG.tier_member_role_ids.includes(role.id));
+  const memberRoles = member.roles.cache.filter((role) => {
+    return globals.CONFIG.selected_member_role_ids.includes(role.id);
+  });
 
-  if ((tierRoles.size > 0)
+  if ((selectedRoles.size > 0)
         && (memberRoles.size > 0)) {
     return true;
   }
@@ -156,13 +158,13 @@ export function checkIfUserDiscordMod(member: GuildMember | null):
     return false;
   }
 
-  const tierRoles = member.guild.roles.cache
+  const selectedRoles = member.guild.roles.cache
     .filter((role) => globals.CONFIG.discord_mod_role_ids.includes(role.id));
 
   const memberRoles = member.roles.cache
     .filter((role) => globals.CONFIG.discord_mod_role_ids.includes(role.id));
 
-  if ((tierRoles.size > 0)
+  if ((selectedRoles.size > 0)
         && (memberRoles.size > 0)) {
     return true;
   }
@@ -511,7 +513,7 @@ export async function checkPermaBan(member: GuildMember):
   const banUser = await getMemberKickTimer(member);
 
   if (banUser && (banUser.reason !== undefined)
-    && !checkIfWhitelisted(member)) {
+    && !checkIfSelected(member)) {
     // get the old username from the reason message (offset is 24)
     const oldUserName = banUser.reason.substring(globals.REASON_OFFSET,
       banUser.reason.length);

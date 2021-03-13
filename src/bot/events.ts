@@ -129,8 +129,8 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
 }
 
 /**
- * If a user has an inapproprirate username, either ask for action for Tier
- * Members, or mute them for non-members.
+ * If a user has an inapproprirate username, either ask for action for
+ * selected members, or mute for regular members.
  * @param {GuildMember} member
  * @returns {Promise<void>}
  */
@@ -159,21 +159,21 @@ export async function muteInappropriateUsername(member: GuildMember):
 
   const reason = `Inappropriate username: ${member.user.username}`;
 
-  // If user is a YT member and not a mod, ask moderators for next steps
-  // using reaction embeds.
-  if (utils.checkIfWhitelisted(member)) {
+  // If user is a selected member and not a mod, ask moderators for next
+  // steps using reaction embeds.
+  if (utils.checkIfSelected(member)) {
     utils.getLoggerModule('mute user')
-      .info('User is a YouTube member. Wait for embed reaction!');
-    const tierMemberEmbed = embeds.createEmbedForTierMemberAction(member);
+      .info('User is a selected member. Wait for embed reaction!');
+    const memberEmbed = embeds.createEmbedForMemberAction(member);
     const automodChannel = member.guild.channels.cache
       .get(globals.CONFIG.automod_ch_id) as TextChannel;
 
     if (automodChannel !== undefined) {
-      const channelEmbed = await automodChannel.send(tierMemberEmbed);
-      await embeds.reactToTierEmbed(channelEmbed);
+      const channelEmbed = await automodChannel.send(memberEmbed);
+      await embeds.reactToMemberEmbed(channelEmbed);
 
       const collector = channelEmbed.createReactionCollector(
-        embeds.filterTierEmbedReaction(),
+        embeds.filterMemberEmbedReaction(),
         { time: globals.DAY * globals.MILLIS },
       );
 
@@ -181,7 +181,7 @@ export async function muteInappropriateUsername(member: GuildMember):
         reactUser: User) => {
         if (!reactUser.bot) {
           const actionDone = await embeds
-            .performActionOnTierEmbedReaction(member, reactUser, reaction,
+            .performActionOnMemberEmbedReaction(member, reactUser, reaction,
               reason);
 
           if (actionDone) {

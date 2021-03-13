@@ -56,11 +56,11 @@ Populate the config.json file in the config directory (**fields after the :**):
         ...,
         "discord_mod_role_idn",
     ],
-    "tier_member_role_ids": [
-        "tier_member_role_id1",
-        "tier_member_role_id2",
+    "selected_member_role_ids": [
+        "selected_member_role_id1",
+        "selected_member_role_id2",
         ...,
-        "tier_member_role_idn",
+        "selected_member_role_idn",
     ]
 }
 ```

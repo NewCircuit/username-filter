@@ -12,10 +12,10 @@ import * as globals from '../bot/globals';
 import { InappropriateWord } from './types';
 
 /**
- * Reactions used for deciding the fate of tier member with inappropriate
- * username
+ * Reactions used for deciding the fate of selected members with
+ * inappropriate username
  */
-const tierEmbedReactions = ['🔇', '👢', '1⃣', '2⃣', '3⃣', '🔨', '❌'];
+const memberEmbedReactions = ['🔇', '👢', '1⃣', '2⃣', '3⃣', '🔨', '❌'];
 
 const listEmbedReactions = ['⬅️', '➡️', '🔢'];
 
@@ -222,15 +222,15 @@ export function createEmbedForUnban(user: User, reactMember: GuildMember | null,
 }
 
 /**
- * return an embed for Tier Members which will "prompt" a moderator reaction
+ * return an embed for members which will "prompt" a moderator reaction
  * and based on that, will perform one of the actions
  * @param {GuildMember} member
  */
-export function createEmbedForTierMemberAction(member: GuildMember)
+export function createEmbedForMemberAction(member: GuildMember)
   : MessageEmbed {
   const memberAvatar = member.user.avatarURL();
 
-  const tierMemberActionEmbed = new MessageEmbed()
+  const selectedMemberActionEmbed = new MessageEmbed()
     .setColor('#0492C2')
     .setTitle('**Inappropriate username**')
     .setThumbnail(memberAvatar !== null ? memberAvatar : '')
@@ -252,7 +252,7 @@ export function createEmbedForTierMemberAction(member: GuildMember)
     .setTimestamp()
     .setFooter(`ID: ${member.user.id}`);
 
-  return tierMemberActionEmbed;
+  return selectedMemberActionEmbed;
 }
 
 /**
@@ -288,11 +288,11 @@ export function createListEmbed(start: number,
  * ********************************************************* */
 
 /**
- * Add all reactions for the tier embed
+ * Add all reactions for the member embed
  * @param {Message} embed
  */
-export async function reactToTierEmbed(embed: Message): Promise<void> {
-  tierEmbedReactions.forEach(async (reaction) => {
+export async function reactToMemberEmbed(embed: Message): Promise<void> {
+  memberEmbedReactions.forEach(async (reaction) => {
     await embed.react(reaction);
   });
 }
@@ -312,13 +312,13 @@ export async function reactToListEmbed(embed: Message): Promise<void> {
  * ********************************************************* */
 
 /**
- * Create a collector filter for the tier embed. Only collect the reactions
- * from tierEmbedReactions.
+ * Create a collector filter for the member embed. Only collect the
+ * reactions from memberEmbedReactions.
  * @return {CollectorFilter}
  */
-export function filterTierEmbedReaction(): CollectorFilter {
+export function filterMemberEmbedReaction(): CollectorFilter {
   return ((reaction: MessageReaction) => {
-    return (tierEmbedReactions.includes(reaction.emoji.name));
+    return (memberEmbedReactions.includes(reaction.emoji.name));
   });
 }
 
@@ -373,7 +373,7 @@ async function listEmbedHandlePages(pageMsg: Message, userMsg: Message,
  * @param {string} reason
  * @returns {Promise<boolean>} true if can perform action, false otherwise
  */
-export async function performActionOnTierEmbedReaction(member: GuildMember,
+export async function performActionOnMemberEmbedReaction(member: GuildMember,
   reactUser: User, reaction: MessageReaction, reason: string):
   Promise<boolean> {
   const reactMember = await utils.getMember(reactUser.id,
@@ -488,11 +488,11 @@ export async function performActionOnListEmbedReaction(messageSent: Message,
         });
       }
     } else {
-      if ((reaction.emoji.name === '⬅️')
+      if ((reaction.emoji.name === '⬅︝')
             && (listEmbedCurrentIndex !== 0)) {
         // show previous page
         listEmbedCurrentIndex -= globals.MAX_EMBED_FIELDS;
-      } else if (reaction.emoji.name === '➡️'
+      } else if (reaction.emoji.name === '➡︝'
             && (listEmbedCurrentIndex <= (array.length
               - globals.MAX_EMBED_FIELDS))) {
         // show next page

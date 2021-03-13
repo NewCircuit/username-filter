@@ -164,7 +164,7 @@ export type BannableWord = {
  * @param {string} punishment_ch_id
  * @param {MuteRoleId} mute_role_ids
  * @param {string[]} discord_mod_role_ids
- * @param {string[]} tier_member_role_ids
+ * @param {string[]} selected_member_role_ids
  */
 export type Config = {
     db_host: string,
@@ -180,7 +180,7 @@ export type Config = {
     punishment_ch_id: string,
     mute_role_ids: MuteRoleId,
     discord_mod_role_ids: string[],
-    tier_member_role_ids: string[],
+    selected_member_role_ids: string[],
 }
 
 /**
@@ -201,5 +201,5 @@ export const configGuard = [
   'punishment_ch_id',
   'mute_role_ids',
   'discord_mod_role_ids',
-  'tier_member_role_ids',
+  'selected_member_role_ids',
 ];
