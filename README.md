@@ -47,8 +47,7 @@ Populate the config.json file in the config directory (**fields after the :**):
     "automod_ch_id": "automod_ch_id",
     "punishment_ch_id": "punishment_ch_id",
     "mute_role_ids": {
-        "muted_id": "muted_id",
-        "vc_muted_id": "vc_muted_id"
+        "muted_id": "muted_id"
     },
     "discord_mod_role_ids": [
         "discord_mod_role_id1",

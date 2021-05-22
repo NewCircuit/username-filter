@@ -1,5 +1,4 @@
 import { GuildMember } from 'discord.js';
-import { QueryResult } from 'pg';
 import {
   BannedUser,
   BannedUserDb,
@@ -101,16 +100,33 @@ export async function getMutedMembers():
 /**
  * Get the active muted member from the database and parse data to the
  * defined type. If no user is found, return undefined
- * @param {GuildMember} member
+ * @param {string} id
  * @returns {Promise<MutedUser | undefined>}
  */
-export async function getActiveMutedMember(member: GuildMember):
+export async function getActiveMutedMember(id: string):
   Promise<MutedUser | undefined> {
   const members = await poolDb.query('SELECT * FROM username_check.muted_users '
-    + 'WHERE uid = $1 AND is_active = true', [member.id]);
+    + 'WHERE uid = $1 AND is_active = true', [id]);
 
   if ((members !== undefined) && (members.rows.length > 0)) {
     return parseUserMuted(members.rows[0]);
+  }
+  return undefined;
+}
+
+/**
+ * Get the active banned member from the database and parse data to the
+ * defined type. If no user is found, return undefined
+ * @param {string} id
+ * @returns {Promise<BannedUser | undefined>}
+ */
+export async function getActiveBannedMember(id: string):
+ Promise<BannedUser | undefined> {
+  const members = await poolDb.query('SELECT * FROM username_check.banned_users '
+   + 'WHERE uid = $1 AND is_active = true', [id]);
+
+  if ((members !== undefined) && (members.rows.length > 0)) {
+    return parseUserBanned(members.rows[0]);
   }
   return undefined;
 }

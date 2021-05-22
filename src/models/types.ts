@@ -123,11 +123,9 @@ export type ParseResult<T> =
  * Interface for the MuteRoleId
  * @interface MuteRoleId
  * @param {string} muted_id
- * @param {string} vc_muted_id
  */
 export type MuteRoleId = {
-  muted_id: string,
-  vc_muted_id: string,
+  muted_id: string
 }
 
 /**

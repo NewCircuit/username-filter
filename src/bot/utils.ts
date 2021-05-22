@@ -105,20 +105,16 @@ export async function checkIfCanMute(member: GuildMember):
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
     .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
-  const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
-  // if there are no muted roles return. Should not happen.
-  if (!mutedRole || !vcMutedRole) {
+  // if there is no muted role return. Should not happen.
+  if (!mutedRole) {
     return undefined;
   }
 
   // check if user is already muted or has higher role
   if ((member.roles.cache.has(mutedRole.id)
-      && member.roles.cache.has(vcMutedRole.id)
-      && ((await getActiveMutedMember(member)) !== undefined))
-      || (checkRolePositionMember(member, mutedRole)
-      && checkRolePositionMember(member, vcMutedRole))) {
+      && ((await getActiveMutedMember(member.id)) !== undefined))
+      || (checkRolePositionMember(member, mutedRole))) {
     return false;
   }
 
@@ -323,11 +319,9 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
     .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
-  const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
-  // if there are no muted roles return. Should not happen.
-  if (!mutedRole || !vcMutedRole) {
+  // if there is no muted role return. Should not happen.
+  if (!mutedRole) {
     getLoggerModule('mute member').error('No muted roles found!');
     return;
   }
@@ -347,7 +341,7 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
   }
 
   // add mute role to the user
-  await member.roles.add([mutedRole.id, vcMutedRole.id])
+  await member.roles.add([mutedRole.id])
     .catch((err) => getLoggerModule('mute member').error(err));
 
   const nextId = await getNextMuteDbRowID();
@@ -393,11 +387,9 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
     .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
-  const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
-  if (!mutedRole || !vcMutedRole) {
-    getLoggerModule('unmute member').error('Muted roles not available!');
+  if (!mutedRole) {
+    getLoggerModule('unmute member').error('Muted role not available!');
     // should not happen
     return;
   }
@@ -415,7 +407,7 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
-  await member.roles.remove([mutedRole.id, vcMutedRole.id])
+  await member.roles.remove([mutedRole.id])
     .catch((err) => getLoggerModule('unmute member').error(err));
 
   member.send('You have been unmuted. Your new '
@@ -446,17 +438,6 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
 export async function banMemberAndSendEmbed(member: GuildMember,
   reactMember: GuildMember | null, duration: number | null, banReason: string):
   Promise<void> {
-  // create a ban response
-  let banResponse = 'You will be';
-  banResponse += (duration === null) ? ' permanently '
-    : ` temporarily (${duration} days) `;
-  banResponse += 'banned for having an inappropriate username. You can '
-    + 'appeal your ban here: https://forms.gle/VrCy2gBgprzdYQvh7';
-  // inform the user about the ban
-  await member.send(banResponse).catch((err) => {
-    getLoggerModule('ban member').error(err);
-  });
-
   let time: bigint = 0n;
 
   if (duration !== null) {
@@ -483,6 +464,21 @@ export async function banMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
+  // create a ban response
+  let banResponse = 'You will be';
+  banResponse += (duration === null) ? ' permanently '
+    : ` temporarily (${duration} days) `;
+  banResponse += 'banned for having an inappropriate username. You can '
+      + 'appeal your ban here: https://forms.gle/VrCy2gBgprzdYQvh7';
+  // inform the user about the ban
+  await member.send(banResponse).catch((err) => {
+    getLoggerModule('ban member').error(err);
+  });
+
+  // ban the user
+  await member.ban({ reason: banReason })
+    .catch((err) => getLoggerModule('ban member').error(err));
+
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
 
@@ -493,10 +489,6 @@ export async function banMemberAndSendEmbed(member: GuildMember,
       getLoggerModule('ban member').error(err);
     });
   }
-
-  // ban the user
-  await member.ban({ reason: banReason })
-    .catch((err) => getLoggerModule('ban member').error(err));
 }
 
 /**
@@ -619,21 +611,18 @@ export async function checkIfStillMuteable(member: GuildMember,
  * @param {MutedUser} dbData
  */
 export async function checkIfAlreadyUnmuted(member: GuildMember,
-  dbData: MutedUser): Promise<boolean> {
+  dbData: MutedUser | null): Promise<boolean> {
   // try getting the mute and vc mute role
   const mutedRole = member.guild.roles.cache
     .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
-  const vcMutedRole = member.guild.roles.cache
-    .find((role) => role.id === globals.CONFIG.mute_role_ids.vc_muted_id);
 
-  if (!mutedRole || !vcMutedRole) {
-    getLoggerModule('unmute member').error('Muted roles not available!');
+  if (!mutedRole) {
+    getLoggerModule('unmute member').error('Muted role not available!');
     // should not happen, return as if user already unmuted
     return true;
   }
 
-  if (!member.roles.cache.has(mutedRole.id)
-    || !member.roles.cache.has(vcMutedRole.id)) {
+  if (!member.roles.cache.has(mutedRole.id)) {
     getLoggerModule('unmute member')
       .error(`Member ${member.user.tag} already unmuted!`);
     // member already unmuted, set to inactive

@@ -3,6 +3,12 @@ import path from 'path';
 import * as events from './bot/events';
 import * as utils from './bot/utils';
 import * as globals from './bot/globals';
+import {
+  getActiveBannedMember,
+  getActiveMutedMember,
+  updateBannedUserInactive,
+  updateKickTimerUser,
+} from './db/db';
 
 /**
  * Create a new commando client with provided attributes
@@ -63,12 +69,61 @@ bot.on('userUpdate', async (oldUser, newUser) => {
 
   if ((guild !== undefined) && (oldUser.username !== null)) {
     const member = await utils.getMember(newUser.id, guild);
-    if ((member !== null) && oldUser.username.toLowerCase()
+
+    if (member === null) {
+      return;
+    }
+
+    if (oldUser.username.toLowerCase()
       .localeCompare(newUser.username.toLowerCase())) {
       utils.getLoggerModule('user update').info(`User ${newUser.tag}`
         + ` (ID:${newUser.id}) has updated the username!`);
       events.muteInappropriateUsername(member);
     }
+  }
+});
+
+/**
+ * Check if someone manually umuted member
+ */
+bot.on('guildMemberUpdate', async (oldMember, newMember) => {
+  const activeMember = await getActiveMutedMember(newMember.id);
+
+  if (activeMember !== undefined) {
+    await utils.checkIfAlreadyUnmuted(newMember, null);
+  }
+});
+
+/**
+ * Check if someone manually unbanned member
+ */
+bot.on('guildBanRemove', async (guild, user) => {
+  if (guild.id !== globals.CONFIG.guild_id) {
+    return;
+  }
+
+  const activeBannedMember = await getActiveBannedMember(user.id);
+
+  if (activeBannedMember !== undefined) {
+    // member already unbanned
+    utils.getLoggerModule('unban member')
+      .error(`Member with ID ${activeBannedMember.uid} already unbanned!`);
+    // set user as inactive (because already unbanned)
+    await updateBannedUserInactive(
+      {
+        uid: activeBannedMember.uid,
+        reason: activeBannedMember.reason,
+        guildId: guild.id,
+      },
+    );
+    // set kick timer to false since member was manually unbanned
+    await updateKickTimerUser(
+      {
+        uid: activeBannedMember.uid,
+        guildId: guild.id,
+        kickTimer: false,
+      },
+    );
   }
 });
 

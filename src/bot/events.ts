@@ -45,29 +45,11 @@ export async function checkBanned(client: CommandoClient): Promise<void> {
       });
 
       if (!bannedUser) {
-        // member already unbanned
-        utils.getLoggerModule('unban member')
-          .error(`Member with ID ${row.uid} already unbanned!`);
-        // set user as inactive (because already unbanned)
-        await updateBannedUserInactive(
-          {
-            uid: row.uid,
-            reason: row.reason,
-            guildId: guild.id,
-          },
-        );
-        // set kick timer to false since member was manually unbanned
-        await updateKickTimerUser(
-          {
-            uid: row.uid,
-            guildId: guild.id,
-            kickTimer: false,
-          },
-        );
-      } else {
-        await utils.unbanMemberAndSendEmbed(bannedUser.user,
-          guild, row.time, null, row.reason);
+        return;
       }
+
+      await utils.unbanMemberAndSendEmbed(bannedUser.user,
+        guild, row.time, null, row.reason);
     }
   });
 }
@@ -105,11 +87,6 @@ export async function checkMuted(client: CommandoClient): Promise<void> {
 
         // get the old username from the reason message (offset is 24)
         const oldUserName = row.reason.substring(24, row.reason.length);
-
-        // if user already unmuted skip the rest
-        if (await utils.checkIfAlreadyUnmuted(member, row)) {
-          return;
-        }
 
         // check if username was changed
         if (member.user.username.localeCompare(oldUserName)) {
@@ -156,7 +133,7 @@ export async function muteInappropriateUsername(member: GuildMember):
   const checkMemberMute = await utils.checkIfCanMute(member);
 
   if (checkMemberMute === undefined) {
-    utils.getLoggerModule('mute user').error("Couldn't fetch muted roles!");
+    utils.getLoggerModule('mute user').error("Couldn't fetch muted role!");
     return;
   }
 
