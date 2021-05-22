@@ -187,7 +187,7 @@ export async function mutedMemberUpdate(member: GuildMember,
   // username still inapproptiate but it was changed
   // set current as non active
   // and insert the newest username
-  await updateMutedUserToInactive(
+  let dbResult = await updateMutedUserToInactive(
     {
       uid: member.id,
       guildId: member.guild.id,
@@ -196,16 +196,29 @@ export async function mutedMemberUpdate(member: GuildMember,
     },
   );
 
+  /* DB query failed, return from function */
+  if (!dbResult) {
+    getLoggerModule('update muted').error('DB update query failed!');
+    return;
+  }
+
   const newReason = `Inappropriate username: ${
     member.user.username}`;
 
-  // insert user id and guild id into a database.
-  await insertUserIntoMutedDb({
+  // insert user id and guild id into a database. if it failed return from
+  // function
+  dbResult = await insertUserIntoMutedDb({
     uid: member.id,
     guildId: member.guild.id,
     reason: newReason,
     kickTimer: kickTimerDb,
   });
+
+  /* DB query failed, return from function */
+  if (!dbResult) {
+    getLoggerModule('update muted').error('DB insert query failed!');
+    return;
+  }
 
   let userDMMsg = 'Your changed username is still inappropriate. '
     + 'Please change your username to something appropriate!';
@@ -269,7 +282,7 @@ export async function checkIfMemberNeedsKick(member: GuildMember,
     const createdAt = new Date(dbData.createdAt).getTime();
 
     if ((now - createdAt) >= (30 * globals.MINUTE * globals.MILLIS)) {
-      await updateMutedUserToInactive(
+      const dbResult = await updateMutedUserToInactive(
         {
           uid: dbData.uid,
           guildId: dbData.guildId,
@@ -277,6 +290,12 @@ export async function checkIfMemberNeedsKick(member: GuildMember,
           kickTimer: dbData.kickTimer,
         },
       );
+
+      /* DB query failed, return from function */
+      if (!dbResult) {
+        getLoggerModule('check kick').error('DB query failed!');
+        return;
+      }
 
       if (dbData.reason !== undefined) {
         getLoggerModule('check kick')
@@ -313,16 +332,23 @@ export async function muteMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
-  // add mute role to the user
-  await member.roles.add([mutedRole.id, vcMutedRole.id])
-    .catch((err) => getLoggerModule('mute member').error(err));
   // insert user id and guild id into a database.
-  await insertUserIntoMutedDb({
+  const dbResult = await insertUserIntoMutedDb({
     uid: member.id,
     guildId: member.guild.id,
     reason,
     kickTimer,
-  }).catch((err) => getLoggerModule('mute member').error(err));
+  });
+
+  /* DB query failed, return from function */
+  if (!dbResult) {
+    getLoggerModule('mute member').error('DB query failed!');
+    return;
+  }
+
+  // add mute role to the user
+  await member.roles.add([mutedRole.id, vcMutedRole.id])
+    .catch((err) => getLoggerModule('mute member').error(err));
 
   const nextId = await getNextMuteDbRowID();
 
@@ -376,12 +402,18 @@ export async function unmuteMemberAndSendEmbed(member: GuildMember,
     return;
   }
 
-  await updateMutedUserToInactive({
+  const dbResult = await updateMutedUserToInactive({
     uid: (dbData === null ? member.id : dbData.uid),
     guildId: (dbData === null ? member.guild.id : dbData.guildId),
     isActive: false,
     kickTimer: false,
   });
+
+  /* DB query failed, return from function */
+  if (!dbResult) {
+    getLoggerModule('unmute member').error('DB query failed!');
+    return;
+  }
 
   await member.roles.remove([mutedRole.id, vcMutedRole.id])
     .catch((err) => getLoggerModule('unmute member').error(err));
@@ -418,7 +450,8 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   let banResponse = 'You will be';
   banResponse += (duration === null) ? ' permanently '
     : ` temporarily (${duration} days) `;
-  banResponse += 'banned for having an inappropriate username.';
+  banResponse += 'banned for having an inappropriate username. You can '
+    + 'appeal your ban here: https://forms.gle/VrCy2gBgprzdYQvh7';
   // inform the user about the ban
   await member.send(banResponse).catch((err) => {
     getLoggerModule('ban member').error(err);
@@ -435,7 +468,7 @@ export async function banMemberAndSendEmbed(member: GuildMember,
   }
 
   // insert the user into the db tracking banned users
-  await insertUserIntoBannedDb(
+  const dbResult = await insertUserIntoBannedDb(
     {
       uid: member.id,
       reason: banReason,
@@ -443,6 +476,12 @@ export async function banMemberAndSendEmbed(member: GuildMember,
       time,
     },
   );
+
+  /* DB query failed, return from function */
+  if (!dbResult) {
+    getLoggerModule('ban member').error('DB query failed!');
+    return;
+  }
 
   const punishChannel = member.guild.channels.cache
     .get(globals.CONFIG.punishment_ch_id) as TextChannel;
@@ -474,6 +513,24 @@ export async function unbanMemberAndSendEmbed(bannedUser: User, guild: Guild,
   Promise<void> {
   const now = Math.round(Date.now() / globals.MILLIS);
   if (now >= time) {
+    getLoggerModule('unban member')
+      .info(`Member ${bannedUser.tag} will be unbanned!`);
+
+    // set user as inactive (because user has been unbanned)
+    const dbResult = await updateBannedUserInactive(
+      {
+        uid: bannedUser.id,
+        reason: banReason,
+        guildId: guild.id,
+      },
+    );
+
+    /* DB query failed, return from function */
+    if (!dbResult) {
+      getLoggerModule('unban member').error('DB query failed!');
+      return;
+    }
+
     await guild.members.unban(bannedUser);
 
     const punishChannel = guild.channels.cache
@@ -486,18 +543,6 @@ export async function unbanMemberAndSendEmbed(bannedUser: User, guild: Guild,
         getLoggerModule('unban member').error(err);
       });
     }
-
-    getLoggerModule('unban member')
-      .info(`Member ${bannedUser.tag} will be unbanned!`);
-
-    // set user as inactive (because user has been unbanned)
-    await updateBannedUserInactive(
-      {
-        uid: bannedUser.id,
-        reason: banReason,
-        guildId: guild.id,
-      },
-    );
   }
 }
 
@@ -514,6 +559,22 @@ export async function checkPermaBan(member: GuildMember):
 
   if (banUser && (banUser.reason !== undefined)
     && !checkIfSelected(member)) {
+    // user joined the server back but not with the same bad username
+    // set kick timer to false
+    const dbResult = await updateKickTimerUser(
+      {
+        uid: member.user.id,
+        guildId: member.guild.id,
+        kickTimer: false,
+      },
+    );
+
+    /* DB query failed, return from function */
+    if (!dbResult) {
+      getLoggerModule('check perma').error('DB query failed!');
+      return false;
+    }
+
     // get the old username from the reason message (offset is 24)
     const oldUserName = banUser.reason.substring(globals.REASON_OFFSET,
       banUser.reason.length);
@@ -524,15 +585,6 @@ export async function checkPermaBan(member: GuildMember):
       banMemberAndSendEmbed(member, null, null, banUser.reason);
       return true;
     }
-    // user joined the server back but not with the same bad username
-    // set kick timer to false
-    await updateKickTimerUser(
-      {
-        uid: member.user.id,
-        guildId: member.guild.id,
-        kickTimer: false,
-      },
-    );
   }
 
   return false;
@@ -585,13 +637,19 @@ export async function checkIfAlreadyUnmuted(member: GuildMember,
     getLoggerModule('unmute member')
       .error(`Member ${member.user.tag} already unmuted!`);
     // member already unmuted, set to inactive
-    await updateMutedUserToInactive({
+    const dbResult = await updateMutedUserToInactive({
       uid: (dbData === null ? member.id : dbData.uid),
       guildId: (dbData === null ? member.guild.id : dbData.guildId),
       isActive: false,
       kickTimer: false,
     });
-    return true;
+
+    /* DB query successful, return from function */
+    if (dbResult) {
+      return true;
+    }
+
+    getLoggerModule('unmute member').error('DB query failed!');
   }
 
   return false;

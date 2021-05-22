@@ -228,53 +228,71 @@ export async function getBannableWords():
  * if it is bannable or not.
  * @param {string} word to be inserted
  * @param {boolean} bannable if word is bannable or not
- * @returns {Promise<void>}
+ * @returns {Promise<Boolean>}
  */
 export async function insertInapproppriateWord(word: string,
-  bannable: boolean): Promise<void> {
-  poolDb.query(
+  bannable: boolean): Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query(
     'INSERT INTO username_check.inappropriate_words('
-      + 'word,'
-      + 'bannable)'
-      + 'VALUES ($1, $2)',
+        + 'word,'
+        + 'bannable)'
+        + 'VALUES ($1, $2)',
     [word, bannable],
-  ).catch((err) => utils.getLoggerModule('insert word db').error(err));
+  ).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = true;
+    }
+  });
+  return dbQueryResult;
 }
 
 /**
  * Inserts the given member into muted database of type MutedUser.
  * @param {MutedUser} user
- * @returns {Promise<QueryResult<MutedUserDb>>}
+ * @returns {Promise<Boolean>}
  */
 export async function insertUserIntoMutedDb(user: MutedUser):
-  Promise<QueryResult<MutedUserDb>> {
-  return poolDb.query(
+  Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query(
     'INSERT INTO username_check.muted_users ('
-              + 'uid,'
-              + 'guild_id,'
-              + 'reason,'
-              + 'is_active,'
-              + 'kick_timer,'
-              + 'created_at,'
-              + 'modified_at)'
-              + 'VALUES ($1, $2, $3, true, $4, now(), now())',
+                + 'uid,'
+                + 'guild_id,'
+                + 'reason,'
+                + 'is_active,'
+                + 'kick_timer,'
+                + 'created_at,'
+                + 'modified_at)'
+                + 'VALUES ($1, $2, $3, true, $4, now(), now())',
     [
       user.uid,
       user.guildId,
       user.reason,
       user.kickTimer,
     ],
-  );
+  ).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = true;
+    }
+  });
+  return dbQueryResult;
 }
 
 /**
  * Inserts the given member into banned database of type BannedUser
  * @param {BannedUser} user
- * @returns {Promise<QueryResult<BannedUserDb>>}
+ * @returns {Promise<Boolean>}
  */
 export async function insertUserIntoBannedDb(user: BannedUser):
-  Promise<QueryResult<BannedUserDb>> {
-  return poolDb.query('INSERT INTO username_check.banned_users ('
+  Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query('INSERT INTO username_check.banned_users ('
     + 'uid,'
     + 'guild_id,'
     + 'reason,'
@@ -288,7 +306,13 @@ export async function insertUserIntoBannedDb(user: BannedUser):
     user.guildId,
     user.reason,
     user.time,
-  ]);
+  ]).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = false;
+    }
+  });
+  return dbQueryResult;
 }
 
 /* *********************************************************
@@ -298,61 +322,85 @@ export async function insertUserIntoBannedDb(user: BannedUser):
 /**
  * Sets the active and kick timer fields of muted user to false
  * @param {MutedUser} user
- * @returns {Promise<QueryResult<MutedUserDb>>}
+ * @returns {Promise<Boolean>}
  */
 export async function updateMutedUserToInactive(user: MutedUser):
-  Promise<QueryResult<MutedUserDb>> {
-  return poolDb.query(
+  Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query(
     'UPDATE username_check.muted_users SET '
-      + 'is_active = $3,'
-      + 'kick_timer = $4,'
-      + 'modified_at = now() '
-      + 'WHERE '
-      + 'uid = $1 '
-      + 'AND guild_id = $2'
-      + 'AND is_active = true',
+        + 'is_active = $3,'
+        + 'kick_timer = $4,'
+        + 'modified_at = now() '
+        + 'WHERE '
+        + 'uid = $1 '
+        + 'AND guild_id = $2'
+        + 'AND is_active = true',
     [user.uid, user.guildId, user.isActive, user.kickTimer],
-  );
+  ).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = false;
+    }
+  });
+  return dbQueryResult;
 }
 
 /**
  * Sets the kick timer fields of muted inactive user to false
  * happens when user was kicked after having an inappropriate username
  * @param {MutedUser} user
- * @returns {Promise<QueryResult<MutedUserDb>>}
+ * @returns {Promise<Boolean>}
  */
 export async function updateKickTimerUser(user: MutedUser):
-  Promise<QueryResult<MutedUserDb>> {
-  return poolDb.query(
+  Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query(
     'UPDATE username_check.muted_users SET '
-      + 'kick_timer = $3,'
-      + 'modified_at = now() '
-      + 'WHERE '
-      + 'uid = $1 '
-      + 'AND guild_id = $2'
-      + 'AND kick_timer = true',
+        + 'kick_timer = $3,'
+        + 'modified_at = now() '
+        + 'WHERE '
+        + 'uid = $1 '
+        + 'AND guild_id = $2'
+        + 'AND kick_timer = true',
     [user.uid, user.guildId, user.kickTimer],
-  );
+  ).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = false;
+    }
+  });
+  return dbQueryResult;
 }
 
 /**
  * Sets the banned user to non active (when unbanned)
  * @param {BannedUser} user
- * @returns {Promise<void>}
+ * @returns {Promise<Boolean>}
  */
 export async function updateBannedUserInactive(user: BannedUser):
-  Promise<void> {
-  poolDb.query(
+  Promise<Boolean> {
+  // We expect that query will be sucessful
+  let dbQueryResult = true;
+  await poolDb.query(
     'UPDATE username_check.banned_users SET '
-                + 'is_active = false,'
-                + 'modified_at = now() '
-                + 'WHERE '
-                + 'uid = $1 '
-                + 'AND guild_id = $2'
-                + 'AND reason = $3'
-                + 'AND is_active = true',
+                  + 'is_active = false,'
+                  + 'modified_at = now() '
+                  + 'WHERE '
+                  + 'uid = $1 '
+                  + 'AND guild_id = $2'
+                  + 'AND reason = $3'
+                  + 'AND is_active = true',
     [user.uid, user.guildId, user.reason],
-  ).catch((err) => utils.getLoggerModule('update banned db').error(err));
+  ).catch((err) => {
+    if (err) {
+      // Error in executing query
+      dbQueryResult = false;
+    }
+  });
+  return dbQueryResult;
 }
 
 /* *********************************************************
