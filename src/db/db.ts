@@ -259,7 +259,7 @@ export async function insertInapproppriateWord(word: string,
   ).catch((err) => {
     if (err) {
       // Error in executing query
-      dbQueryResult = true;
+      dbQueryResult = false;
     }
   });
   return dbQueryResult;
@@ -293,7 +293,7 @@ export async function insertUserIntoMutedDb(user: MutedUser):
   ).catch((err) => {
     if (err) {
       // Error in executing query
-      dbQueryResult = true;
+      dbQueryResult = false;
     }
   });
   return dbQueryResult;
