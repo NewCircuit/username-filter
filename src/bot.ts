@@ -90,7 +90,7 @@ bot.on('guildMemberUpdate', async (oldMember, newMember) => {
   const activeMember = await getActiveMutedMember(newMember.id);
 
   if (activeMember !== undefined) {
-    await utils.checkIfAlreadyUnmuted(newMember, null);
+    await utils.checkIfAlreadyUnmuted(oldMember, newMember);
   }
 });
 

@@ -1,6 +1,6 @@
 /* eslint-disable arrow-body-style */
 import {
-  Guild, GuildMember, Role, TextChannel, User,
+  Guild, GuildMember, PartialGuildMember, Role, TextChannel, User,
 } from 'discord.js';
 import { Logger, getLogger } from 'log4js';
 import {
@@ -607,39 +607,34 @@ export async function checkIfStillMuteable(member: GuildMember,
 
 /**
  * Check if user already unmuted.
- * @param {GuildMember} member
- * @param {MutedUser} dbData
+ * @param {GuildMember | PartialGuildMember} oldMember
+ * @param {GuildMember} newMember
  */
-export async function checkIfAlreadyUnmuted(member: GuildMember,
-  dbData: MutedUser | null): Promise<boolean> {
-  // try getting the mute and vc mute role
-  const mutedRole = member.guild.roles.cache
+export async function checkIfAlreadyUnmuted(oldMember: GuildMember |
+  PartialGuildMember, newMember: GuildMember): Promise<void> {
+  const mutedRole = oldMember.guild.roles.cache
     .find((role) => role.id === globals.CONFIG.mute_role_ids.muted_id);
 
   if (!mutedRole) {
-    getLoggerModule('unmute member').error('Muted role not available!');
-    // should not happen, return as if user already unmuted
-    return true;
+    getLoggerModule('role update').error('Muted role not available!');
+    return;
   }
 
-  if (!member.roles.cache.has(mutedRole.id)) {
-    getLoggerModule('unmute member')
-      .error(`Member ${member.user.tag} already unmuted!`);
+  if (oldMember.roles.cache.has(mutedRole.id)
+    && !newMember.roles.cache.has(mutedRole.id)) {
+    getLoggerModule('role update').info('Member manually unmuted!');
+
     // member already unmuted, set to inactive
     const dbResult = await updateMutedUserToInactive({
-      uid: (dbData === null ? member.id : dbData.uid),
-      guildId: (dbData === null ? member.guild.id : dbData.guildId),
+      uid: newMember.id,
+      guildId: newMember.guild.id,
       isActive: false,
       kickTimer: false,
     });
 
-    /* DB query successful, return from function */
-    if (dbResult) {
-      return true;
+    /* DB query unsuccessful */
+    if (!dbResult) {
+      getLoggerModule('role update').error('DB query failed!');
     }
-
-    getLoggerModule('unmute member').error('DB query failed!');
   }
-
-  return false;
 }
